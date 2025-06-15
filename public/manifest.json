@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "IA Sport",
+  "name": "IA Sport - Predicciones Deportivas",
+  "description": "Predicciones deportivas inteligentes con IA. 89% de precisión en pronósticos.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,16 +11,64 @@
     {
       "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
       "src": "logo512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "logo192-maskable.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "logo512-maskable.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "categories": ["sports", "entertainment"],
+  "screenshots": [
+    {
+      "src": "screenshots/home.png",
+      "type": "image/png",
+      "sizes": "390x844",
+      "label": "Pantalla principal con predicciones"
+    },
+    {
+      "src": "screenshots/stats.png",
+      "type": "image/png",
+      "sizes": "390x844",
+      "label": "Estadísticas y resultados"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Predicciones de Hoy",
+      "short_name": "Hoy",
+      "description": "Ver las predicciones de hoy",
+      "url": "/",
+      "icons": [{ "src": "shortcuts/today.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Estadísticas",
+      "short_name": "Stats",
+      "description": "Ver estadísticas y resultados",
+      "url": "/stats",
+      "icons": [{ "src": "shortcuts/stats.png", "sizes": "96x96" }]
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": []
 }
