@@ -5,7 +5,6 @@ import { AppProvider } from './contexts/AppContext';
 import AuthSystem from './components/auth/AuthSystem';
 import MainApp from './screens/main/MainApp';
 import AdminPanel from './components/admin/AdminPanel';
-import notificationService from './services/notifications';
 
 // Componente para rutas protegidas
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -52,20 +51,15 @@ function AppContent() {
     // Inicializar servicios
     const initApp = async () => {
       try {
-        // Inicializar servicio de notificaciones
-        await notificationService.init();
+        // Solo inicializar servicio de notificaciones básico
+        // El service worker ya se registra en index.js
+        console.log('Inicializando app...');
         
-        // Registrar service worker si está disponible
-        if ('serviceWorker' in navigator) {
-          try {
-            const registration = await navigator.serviceWorker.register('/service-worker.js');
-            console.log('Service Worker registrado:', registration.scope);
-          } catch (error) {
-            console.error('Error registrando Service Worker:', error);
-          }
-        }
+        // Simular una pequeña demora para evitar flashes
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         setAppReady(true);
+        console.log('App lista');
       } catch (error) {
         console.error('Error inicializando app:', error);
         setAppReady(true); // Continuar de todos modos

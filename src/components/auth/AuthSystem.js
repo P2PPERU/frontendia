@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext'; // USAR TU CONTEXTO
 import { 
   Brain, Eye, EyeOff, Phone, Mail, Lock, User, ChevronRight, 
   ArrowLeft, Shield, Check, AlertCircle, Smartphone, MessageCircle,
   TrendingUp, Target
 } from 'lucide-react';
-import authService from '../../services/api/auth';
 import { VALIDATION } from '../../utils/constants';
 
 const AuthSystem = () => {
   const navigate = useNavigate();
+  const { login, register, isAuthenticated, isAdmin, loading } = useAuth(); // USAR CONTEXTO
+  
   const [currentView, setCurrentView] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [verificationCode, setVerificationCode] = useState(['', '', '', '', '', '']);
   const [formData, setFormData] = useState({
     phone: '',
@@ -25,16 +27,17 @@ const AuthSystem = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Redirigir si ya está autenticado - SIN BUCLE
   useEffect(() => {
-    if (authService.isAuthenticated()) {
-      const user = authService.getCurrentUser();
-      if (user?.isAdmin) {
-        navigate('/admin');
+    if (!loading && isAuthenticated) {
+      console.log('👤 Usuario ya autenticado, redirigiendo...');
+      if (isAdmin) {
+        navigate('/admin', { replace: true });
       } else {
-        navigate('/app');
+        navigate('/app', { replace: true });
       }
     }
-  }, [navigate]);
+  }, [isAuthenticated, isAdmin, loading, navigate]);
 
   const formatPhoneNumber = (value) => {
     const phoneNumber = value.replace(/[^\d]/g, '');
@@ -55,37 +58,47 @@ const AuthSystem = () => {
     return VALIDATION.EMAIL_REGEX.test(email);
   };
 
+  // Login usando tu AuthContext
   const handleLogin = async () => {
     setError('');
-    setLoading(true);
+    setSuccess('');
+    setAuthLoading(true);
+
+    // Validaciones básicas
+    if (!formData.phone || !formData.password) {
+      setError('Por favor ingresa teléfono/email y contraseña');
+      setAuthLoading(false);
+      return;
+    }
 
     try {
-      const result = await authService.login(formData.phone, formData.password);
+      console.log('🚀 Iniciando login con AuthContext...');
+      
+      // Usar el método login de tu contexto
+      const result = await login(formData.phone, formData.password);
       
       if (result.success) {
+        console.log('✅ Login exitoso');
         setSuccess('¡Inicio de sesión exitoso!');
-        
-        setTimeout(() => {
-          const user = authService.getCurrentUser();
-          if (user?.isAdmin) {
-            navigate('/admin');
-          } else {
-            navigate('/app');
-          }
-        }, 1000);
+        // La navegación se manejará automáticamente por el useEffect de arriba
       } else {
+        console.error('❌ Login fallido:', result.message);
         setError(result.message || 'Credenciales incorrectas');
       }
     } catch (error) {
+      console.error('❌ Error en handleLogin:', error);
       setError('Error de conexión. Verifica tu internet.');
     }
     
-    setLoading(false);
+    setAuthLoading(false);
   };
 
+  // Registro usando tu AuthContext
   const handleRegister = async () => {
     setError('');
+    setSuccess('');
     
+    // Validaciones
     if (!formData.name || formData.name.length < VALIDATION.MIN_NAME_LENGTH) {
       setError(`El nombre debe tener al menos ${VALIDATION.MIN_NAME_LENGTH} caracteres`);
       return;
@@ -116,10 +129,13 @@ const AuthSystem = () => {
       return;
     }
 
-    setLoading(true);
+    setAuthLoading(true);
 
     try {
-      const result = await authService.register({
+      console.log('🚀 Iniciando registro con AuthContext...');
+      
+      // Usar el método register de tu contexto
+      const result = await register({
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
@@ -127,83 +143,28 @@ const AuthSystem = () => {
       });
 
       if (result.success) {
+        console.log('✅ Registro exitoso');
         setSuccess('¡Cuenta creada exitosamente!');
-        
-        if (result.user && result.token) {
-          setTimeout(() => {
-            navigate('/app');
-          }, 1500);
-        } else {
-          setCurrentView('verify');
-        }
+        // La navegación se manejará automáticamente por el useEffect de arriba
       } else {
+        console.error('❌ Registro fallido:', result.message);
         setError(result.message || 'Error al crear la cuenta');
       }
     } catch (error) {
+      console.error('❌ Error en handleRegister:', error);
       setError('Error de conexión. Verifica tu internet.');
     }
     
-    setLoading(false);
+    setAuthLoading(false);
   };
 
+  // Placeholder para funciones no implementadas
   const handleForgotPassword = async () => {
-    setError('');
-    
-    if (!formData.phone && !formData.email) {
-      setError('Ingresa tu número de teléfono o email');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const result = await authService.forgotPassword(formData.phone || formData.email);
-      
-      if (result.success) {
-        setSuccess('Código de verificación enviado');
-        setCurrentView('verify');
-      } else {
-        setError(result.message || 'No se encontró una cuenta con estos datos');
-      }
-    } catch (error) {
-      setError('Error de conexión. Verifica tu internet.');
-    }
-    
-    setLoading(false);
+    setError('Función de recuperación de contraseña no implementada aún');
   };
 
   const handleVerification = async () => {
-    const code = verificationCode.join('');
-    if (code.length !== VALIDATION.OTP_LENGTH) {
-      setError('Ingresa el código completo');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const result = await authService.verifyOTP(formData.phone, code);
-      
-      if (result.success) {
-        setSuccess('¡Verificación exitosa!');
-        
-        if (result.token) {
-          setTimeout(() => {
-            navigate('/app');
-          }, 1000);
-        } else {
-          setTimeout(() => {
-            setCurrentView('login');
-          }, 1000);
-        }
-      } else {
-        setError(result.message || 'Código incorrecto');
-      }
-    } catch (error) {
-      setError('Error de conexión. Verifica tu internet.');
-    }
-    
-    setLoading(false);
+    setError('Función de verificación OTP no implementada aún');
   };
 
   const handleCodeInput = (index, value) => {
@@ -218,6 +179,29 @@ const AuthSystem = () => {
       }
     }
   };
+
+  // Limpiar errores cuando se cambia de vista
+  useEffect(() => {
+    setError('');
+    setSuccess('');
+  }, [currentView]);
+
+  // Si está cargando el contexto de auth, mostrar spinner
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white">
+        <div className="text-center">
+          <div className="bg-white rounded-2xl p-8 shadow-xl">
+            <div className="animate-pulse mb-4">
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mx-auto"></div>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">IA SPORT</h1>
+            <p className="text-gray-600">Verificando autenticación...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const LoginView = () => (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
@@ -236,14 +220,14 @@ const AuthSystem = () => {
           <h2 className="text-xl font-bold text-gray-800 mb-6 text-center">Iniciar Sesión</h2>
           
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm animate-pulse">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               {error}
             </div>
           )}
 
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700 text-sm animate-pulse">
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700 text-sm">
               <Check className="w-4 h-4 mr-2 flex-shrink-0" />
               {success}
             </div>
@@ -261,7 +245,7 @@ const AuthSystem = () => {
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={loading}
+                  disabled={authLoading}
                 />
                 <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
@@ -279,14 +263,14 @@ const AuthSystem = () => {
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={loading}
+                  disabled={authLoading}
                 />
                 <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  disabled={loading}
+                  disabled={authLoading}
                 >
                   {showPassword ? 
                     <EyeOff className="w-5 h-5" /> : 
@@ -304,7 +288,7 @@ const AuthSystem = () => {
               <button 
                 onClick={() => setCurrentView('forgot')}
                 className="text-sm text-blue-600 hover:underline"
-                disabled={loading}
+                disabled={authLoading}
               >
                 ¿Olvidaste tu contraseña?
               </button>
@@ -312,10 +296,10 @@ const AuthSystem = () => {
 
             <button
               onClick={handleLogin}
-              disabled={loading}
+              disabled={authLoading || !formData.phone || !formData.password}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center"
             >
-              {loading ? (
+              {authLoading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                 <>
@@ -332,7 +316,7 @@ const AuthSystem = () => {
               <button 
                 onClick={() => setCurrentView('register')}
                 className="text-blue-600 font-medium hover:underline"
-                disabled={loading}
+                disabled={authLoading}
               >
                 Regístrate aquí
               </button>
@@ -365,7 +349,7 @@ const AuthSystem = () => {
           <button 
             onClick={() => setCurrentView('login')}
             className="text-white p-2 hover:bg-white/20 rounded-lg transition-colors"
-            disabled={loading}
+            disabled={authLoading}
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
@@ -377,14 +361,14 @@ const AuthSystem = () => {
       <div className="px-6 mt-6">
         <div className="bg-white rounded-2xl shadow-xl p-6">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm animate-pulse">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               {error}
             </div>
           )}
 
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700 text-sm animate-pulse">
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700 text-sm">
               <Check className="w-4 h-4 mr-2 flex-shrink-0" />
               {success}
             </div>
@@ -402,7 +386,7 @@ const AuthSystem = () => {
                   value={formData.name}
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={loading}
+                  disabled={authLoading}
                 />
                 <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
@@ -419,7 +403,7 @@ const AuthSystem = () => {
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: formatPhoneNumber(e.target.value)})}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={loading}
+                  disabled={authLoading}
                 />
                 <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
@@ -437,7 +421,7 @@ const AuthSystem = () => {
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={loading}
+                  disabled={authLoading}
                 />
                 <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
@@ -454,14 +438,14 @@ const AuthSystem = () => {
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={loading}
+                  disabled={authLoading}
                 />
                 <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  disabled={loading}
+                  disabled={authLoading}
                 >
                   {showPassword ? 
                     <EyeOff className="w-5 h-5" /> : 
@@ -482,7 +466,7 @@ const AuthSystem = () => {
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={loading}
+                  disabled={authLoading}
                 />
                 <Shield className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
@@ -494,7 +478,7 @@ const AuthSystem = () => {
                 className="mr-2 mt-1"
                 checked={formData.acceptTerms}
                 onChange={(e) => setFormData({...formData, acceptTerms: e.target.checked})}
-                disabled={loading}
+                disabled={authLoading}
               />
               <span className="text-sm text-gray-600">
                 Acepto los <button type="button" className="text-blue-600 underline" onClick={() => window.open('/terms', '_blank')}>términos y condiciones</button> y 
@@ -504,10 +488,10 @@ const AuthSystem = () => {
 
             <button
               onClick={handleRegister}
-              disabled={loading}
+              disabled={authLoading}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center"
             >
-              {loading ? (
+              {authLoading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                 <>
@@ -544,7 +528,7 @@ const AuthSystem = () => {
           <button 
             onClick={() => setCurrentView('login')}
             className="text-white p-2 hover:bg-white/20 rounded-lg transition-colors"
-            disabled={loading}
+            disabled={authLoading}
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
@@ -556,16 +540,9 @@ const AuthSystem = () => {
       <div className="px-6 mt-6">
         <div className="bg-white rounded-2xl shadow-xl p-6">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm animate-pulse">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700 text-sm animate-pulse">
-              <Check className="w-4 h-4 mr-2 flex-shrink-0" />
-              {success}
             </div>
           )}
 
@@ -581,7 +558,7 @@ const AuthSystem = () => {
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={loading}
+                  disabled={authLoading}
                 />
                 <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               </div>
@@ -592,10 +569,10 @@ const AuthSystem = () => {
 
             <button
               onClick={handleForgotPassword}
-              disabled={loading}
+              disabled={authLoading}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center"
             >
-              {loading ? (
+              {authLoading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
               ) : (
                 <>
@@ -626,7 +603,7 @@ const AuthSystem = () => {
           <button 
             onClick={() => setCurrentView('login')}
             className="text-white p-2 hover:bg-white/20 rounded-lg transition-colors"
-            disabled={loading}
+            disabled={authLoading}
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
@@ -648,16 +625,9 @@ const AuthSystem = () => {
           </div>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm animate-pulse">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm">
               <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
               {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center text-green-700 text-sm animate-pulse">
-              <Check className="w-4 h-4 mr-2 flex-shrink-0" />
-              {success}
             </div>
           )}
 
@@ -671,17 +641,17 @@ const AuthSystem = () => {
                 value={digit}
                 onChange={(e) => handleCodeInput(index, e.target.value)}
                 className="w-12 h-12 text-center text-xl font-bold border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500 transition-all"
-                disabled={loading}
+                disabled={authLoading}
               />
             ))}
           </div>
 
           <button
             onClick={handleVerification}
-            disabled={loading || verificationCode.join('').length !== VALIDATION.OTP_LENGTH}
+            disabled={authLoading || verificationCode.join('').length !== VALIDATION.OTP_LENGTH}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-bold hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center"
           >
-            {loading ? (
+            {authLoading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
             ) : (
               <>
@@ -697,7 +667,7 @@ const AuthSystem = () => {
             </p>
             <button 
               className="text-blue-600 font-medium hover:underline"
-              disabled={loading}
+              disabled={authLoading}
               onClick={handleForgotPassword}
             >
               Reenviar código

@@ -24,15 +24,14 @@ const MainApp = () => {
 
   // Verificar autenticación
   useEffect(() => {
-    if (!authService.isAuthenticated()) {
-      navigate('/login');
-      return;
-    }
-    
     const user = authService.getCurrentUser();
-    setUserData(user);
-    setIsPremium(user?.isPremium || false);
-  }, [navigate]);
+    if (!user || !authService.isAuthenticated()) {
+      navigate('/login', { replace: true });
+    } else {
+      setUserData(user);
+      setIsPremium(user?.isPremium || false);
+    }
+  }, []);
 
   // Detector de conexión
   useEffect(() => {
