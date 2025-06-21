@@ -1,14 +1,72 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, TrendingUp, Target, Clock, Home, BarChart3, Trophy, User, Check, Star, Brain, Zap, Calendar, RefreshCw, Lock, Video, Gift, AlertCircle, X, WifiOff, LogOut } from 'lucide-react';
+import { ChevronRight, TrendingUp, Target, Clock, Home, BarChart3, Trophy, User, Check, Star, Brain, Zap, Calendar, RefreshCw, Lock, Video, Gift, AlertCircle, X, WifiOff, LogOut, ChevronDown, ChevronLeft } from 'lucide-react';
 import predictionsService from '../../services/api/predictions';
 import authService from '../../services/api/auth';
 import { APP_CONFIG } from '../../utils/constants';
+
+// Componente para selector de fechas
+const DateSelector = ({ selectedDate, onDateChange, availableDates }) => {
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const formatDisplayDate = (date) => {
+    return new Date(date).toLocaleDateString('es-PE', { 
+      day: 'numeric', 
+      month: 'short' 
+    });
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowDatePicker(!showDatePicker)}
+        className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-lg px-3 py-2 text-white"
+      >
+        <Calendar className="w-4 h-4" />
+        <span className="text-sm font-medium">{formatDisplayDate(selectedDate)}</span>
+        <ChevronDown className="w-4 h-4" />
+      </button>
+
+      {showDatePicker && (
+        <div className="absolute top-full mt-2 right-0 bg-white rounded-lg shadow-xl border border-gray-200 z-50 min-w-48">
+          <div className="p-2">
+            <div className="text-sm font-medium text-gray-700 px-3 py-2 border-b border-gray-100">
+              Fechas Disponibles
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              {availableDates.map((date) => (
+                <button
+                  key={date}
+                  onClick={() => {
+                    onDateChange(date);
+                    setShowDatePicker(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded transition-colors ${
+                    date === selectedDate ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  {new Date(date).toLocaleDateString('es-PE', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                  })}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const MainApp = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('home');
   const [predictions, setPredictions] = useState([]);
+  const [allPredictions, setAllPredictions] = useState([]); // Para histórico
+  const [availableDates, setAvailableDates] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
@@ -16,11 +74,18 @@ const MainApp = () => {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState(null);
-  const [unlockedPredictions, setUnlockedPredictions] = useState(new Set());
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState('');
+  const [realStats, setRealStats] = useState({
+    accuracy: 0,
+    avgOdds: 0,
+    totalPredictions: 0,
+    wonPredictions: 0,
+    lostPredictions: 0,
+    pendingPredictions: 0
+  });
 
   // Verificar autenticación
   useEffect(() => {
@@ -47,17 +112,23 @@ const MainApp = () => {
     };
   }, []);
 
-  // Cargar predicciones
-  const loadPredictions = useCallback(async () => {
+  // Cargar predicciones por fecha
+  const loadPredictionsByDate = useCallback(async (date) => {
+    setLoading(true);
     setError('');
     
     try {
-      const result = await predictionsService.getTodayPredictions();
+      const result = await predictionsService.getPredictionsByDate(date);
       
       if (result.success) {
-        setPredictions(result.predictions);
+        const datePredictions = result.predictions || [];
+        setPredictions(datePredictions);
         setFreeViewsLeft(result.freeViewsLeft || 0);
         setIsPremium(result.isPremium || false);
+        
+        // Calcular estadísticas reales para la fecha seleccionada
+        const stats = calculateRealStats(datePredictions);
+        setRealStats(stats);
         
         if (result.cached) {
           setError('Mostrando predicciones guardadas. Conecta a internet para actualizar.');
@@ -73,9 +144,63 @@ const MainApp = () => {
     }
   }, []);
 
+  // Cargar fechas disponibles y predicciones iniciales
+  const loadInitialData = useCallback(async () => {
+    try {
+      // Cargar fechas disponibles (últimos 30 días con predicciones)
+      const datesResult = await predictionsService.getAvailableDates();
+      if (datesResult.success) {
+        const dates = datesResult.dates || [];
+        setAvailableDates(dates);
+        
+        // Si no hay predicciones para hoy, seleccionar la fecha más reciente
+        const today = new Date().toISOString().split('T')[0];
+        const dateToLoad = dates.includes(today) ? today : (dates[0] || today);
+        setSelectedDate(dateToLoad);
+        
+        // Cargar predicciones para la fecha seleccionada
+        await loadPredictionsByDate(dateToLoad);
+      } else {
+        // Fallback: cargar predicciones de hoy
+        await loadPredictionsByDate(selectedDate);
+      }
+    } catch (error) {
+      setError('Error al cargar datos iniciales');
+      setLoading(false);
+    }
+  }, [loadPredictionsByDate, selectedDate]);
+
   useEffect(() => {
-    loadPredictions();
-  }, [loadPredictions]);
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // Cargar predicciones cuando cambie la fecha
+  useEffect(() => {
+    if (selectedDate && availableDates.includes(selectedDate)) {
+      loadPredictionsByDate(selectedDate);
+    }
+  }, [selectedDate, loadPredictionsByDate, availableDates]);
+
+  // Calcular estadísticas reales
+  const calculateRealStats = (predictionsList) => {
+    const total = predictionsList.length;
+    const completed = predictionsList.filter(p => p.result === 'WON' || p.result === 'LOST');
+    const won = predictionsList.filter(p => p.result === 'WON').length;
+    const lost = predictionsList.filter(p => p.result === 'LOST').length;
+    const pending = predictionsList.filter(p => p.result === 'PENDING' || !p.result).length;
+    
+    const accuracy = completed.length > 0 ? Math.round((won / completed.length) * 100) : 0;
+    const avgOdds = total > 0 ? (predictionsList.reduce((sum, p) => sum + (p.odds || 0), 0) / total) : 0;
+    
+    return {
+      accuracy,
+      avgOdds: parseFloat(avgOdds.toFixed(2)),
+      totalPredictions: total,
+      wonPredictions: won,
+      lostPredictions: lost,
+      pendingPredictions: pending
+    };
+  };
 
   // Auto-rotate carousel
   useEffect(() => {
@@ -91,13 +216,18 @@ const MainApp = () => {
   // Pull to refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadPredictions();
+    await loadPredictionsByDate(selectedDate);
+  };
+
+  // Manejar cambio de fecha
+  const handleDateChange = (newDate) => {
+    setSelectedDate(newDate);
   };
 
   // Manejar click en predicción
   const handlePredictionClick = async (pred) => {
     // Si no es premium o ya está desbloqueada, no hacer nada
-    if (!pred.isPremium || isPremium || unlockedPredictions.has(pred.id)) {
+    if (!pred.isPremium || isPremium || !pred.locked || pred.unlocked) {
       return;
     }
     
@@ -120,16 +250,24 @@ const MainApp = () => {
       const result = await predictionsService.unlockPrediction(selectedPrediction.id);
       
       if (result.success) {
-        // Actualizar predicción con datos desbloqueados
+        // Actualizar predicción con datos desbloqueados según tu backend
         setPredictions(prevPredictions => 
           prevPredictions.map(p => 
             p.id === selectedPrediction.id 
-              ? { ...p, ...result.prediction, locked: false, unlocked: true }
+              ? { 
+                  ...p, 
+                  ...result.prediction,
+                  locked: false, 
+                  unlocked: true,
+                  // Tu backend devuelve la predicción completa desbloqueada
+                  prediction: result.prediction.prediction,
+                  confidence: result.prediction.confidence,
+                  odds: result.prediction.odds
+                }
               : p
           )
         );
         
-        setUnlockedPredictions(new Set([...unlockedPredictions, selectedPrediction.id]));
         setFreeViewsLeft(result.freeViewsLeft);
         
         // Limpiar selección
@@ -236,6 +374,7 @@ const MainApp = () => {
 
   const HomeScreen = () => {
     const resultsToShow = predictions.filter(p => p.result !== null && p.result !== 'PENDING');
+    const isToday = selectedDate === new Date().toISOString().split('T')[0];
 
     return (
       <div className="pb-20">
@@ -252,29 +391,35 @@ const MainApp = () => {
                   <WifiOff className="w-5 h-5 text-white" />
                 </div>
               )}
-              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-                <Brain className="w-6 h-6 text-white" />
-              </div>
+              <DateSelector 
+                selectedDate={selectedDate}
+                onDateChange={handleDateChange}
+                availableDates={availableDates}
+              />
             </div>
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats Cards - CON DATOS REALES */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <Target className="w-5 h-5 text-white/80" />
                 <span className="text-xs text-white/80">Precisión</span>
               </div>
-              <div className="text-2xl font-bold text-white">89%</div>
-              <div className="text-xs text-green-300 mt-1">+2% esta semana</div>
+              <div className="text-2xl font-bold text-white">{realStats.accuracy}%</div>
+              <div className={`text-xs mt-1 ${realStats.accuracy >= 80 ? 'text-green-300' : realStats.accuracy >= 60 ? 'text-yellow-300' : 'text-red-300'}`}>
+                {realStats.totalPredictions > 0 ? `${realStats.wonPredictions}/${realStats.totalPredictions} acertadas` : 'Sin datos'}
+              </div>
             </div>
             <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
               <div className="flex items-center justify-between mb-2">
                 <TrendingUp className="w-5 h-5 text-white/80" />
                 <span className="text-xs text-white/80">Cuota Media</span>
               </div>
-              <div className="text-2xl font-bold text-white">1.70</div>
-              <div className="text-xs text-yellow-300 mt-1">Alto valor</div>
+              <div className="text-2xl font-bold text-white">{realStats.avgOdds || '0.00'}</div>
+              <div className="text-xs text-yellow-300 mt-1">
+                {realStats.avgOdds > 1.8 ? 'Alto valor' : realStats.avgOdds > 1.5 ? 'Valor medio' : 'Valor bajo'}
+              </div>
             </div>
           </div>
         </div>
@@ -339,7 +484,7 @@ const MainApp = () => {
         )}
 
         {/* User Status Bar */}
-        {!isPremium && (
+        {!isPremium && isToday && (
           <div className="mx-4 mt-4 bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
             <div className="flex items-center">
               <Gift className="w-5 h-5 text-orange-600 mr-2" />
@@ -358,7 +503,9 @@ const MainApp = () => {
 
         {/* Today's Date & Refresh */}
         <div className="flex items-center justify-between px-4 mt-6 mb-4">
-          <h2 className="text-lg font-bold text-gray-800">Predicciones de Hoy</h2>
+          <h2 className="text-lg font-bold text-gray-800">
+            Predicciones de {isToday ? 'Hoy' : new Date(selectedDate).toLocaleDateString('es-PE', { day: 'numeric', month: 'long' })}
+          </h2>
           <div className="flex items-center gap-3">
             <button
               onClick={handleRefresh}
@@ -367,10 +514,6 @@ const MainApp = () => {
             >
               <RefreshCw className="w-4 h-4 text-gray-600" />
             </button>
-            <div className="flex items-center text-sm text-gray-600">
-              <Calendar className="w-4 h-4 mr-1" />
-              <span>{new Date().toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}</span>
-            </div>
           </div>
         </div>
 
@@ -383,7 +526,7 @@ const MainApp = () => {
           ) : predictions.length === 0 ? (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No hay predicciones disponibles</p>
+              <p className="text-gray-600">No hay predicciones para esta fecha</p>
               <button 
                 onClick={handleRefresh}
                 className="mt-4 text-blue-600 font-medium"
@@ -393,14 +536,15 @@ const MainApp = () => {
             </div>
           ) : (
             predictions.map((pred) => {
-              const isUnlocked = !pred.isPremium || isPremium || unlockedPredictions.has(pred.id) || pred.unlocked;
-              const isLocked = pred.isPremium && !isPremium && !isUnlocked;
+              // Tu backend maneja locked/unlocked directamente
+              const isUnlocked = !pred.locked || pred.unlocked || !pred.isPremium || isPremium;
+              const isLocked = pred.locked && pred.isPremium && !isPremium && !pred.unlocked;
               
               return (
                 <div 
                   key={pred.id} 
-                  onClick={() => handlePredictionClick(pred)}
-                  className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transform transition-all ${isLocked ? 'cursor-pointer active:scale-95' : ''}`}
+                  onClick={() => isToday && handlePredictionClick(pred)}
+                  className={`bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transform transition-all ${isLocked && isToday ? 'cursor-pointer active:scale-95' : ''}`}
                 >
                   {pred.isHot && (
                     <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-3 py-1 flex items-center justify-between">
@@ -470,7 +614,7 @@ const MainApp = () => {
                         <div className="text-center">
                           <Lock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-sm text-gray-600 font-medium">
-                            {freeViewsLeft > 0 ? 'Ver video para desbloquear' : 'Contenido Premium'}
+                            {isToday ? (freeViewsLeft > 0 ? 'Ver video para desbloquear' : 'Contenido Premium') : 'Contenido Premium'}
                           </p>
                         </div>
                       </div>
@@ -485,10 +629,12 @@ const MainApp = () => {
         {/* Daily Summary */}
         {predictions.length > 0 && (
           <div className="mt-8 mx-4 bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-6 text-white">
-            <h3 className="text-lg font-bold mb-4">Resumen del Día</h3>
+            <h3 className="text-lg font-bold mb-4">
+              Resumen del {isToday ? 'Día' : new Date(selectedDate).toLocaleDateString('es-PE', { day: 'numeric', month: 'long' })}
+            </h3>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold">{predictions.length}</div>
+                <div className="text-2xl font-bold">{realStats.totalPredictions}</div>
                 <div className="text-xs text-gray-400">Total</div>
               </div>
               <div className="text-center">
@@ -499,11 +645,29 @@ const MainApp = () => {
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-400">
-                  {predictions.length > 0 ? (predictions.reduce((sum, p) => sum + (p.odds || 0), 0) / predictions.length).toFixed(2) : '0.00'}
+                  {realStats.avgOdds || '0.00'}
                 </div>
                 <div className="text-xs text-gray-400">Cuota Avg</div>
               </div>
             </div>
+            {realStats.totalPredictions > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-700">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-lg font-bold text-green-400">{realStats.wonPredictions}</div>
+                    <div className="text-xs text-gray-400">Acertadas</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-red-400">{realStats.lostPredictions}</div>
+                    <div className="text-xs text-gray-400">Falladas</div>
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-yellow-400">{realStats.pendingPredictions}</div>
+                    <div className="text-xs text-gray-400">Pendientes</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -511,34 +675,40 @@ const MainApp = () => {
   };
 
   const StatsScreen = () => {
-    const stats = predictionsService.calculateStats(predictions);
+    const allStats = calculateRealStats(allPredictions);
     
     return (
       <div className="pb-20 px-4 pt-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Estadísticas</h1>
         
         {/* Today's Live Results */}
-        {stats.total > 0 && (
+        {realStats.totalPredictions > 0 && (
           <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-6 text-white mb-6">
-            <h2 className="text-lg font-bold mb-4">Resultados en Vivo de Hoy</h2>
+            <h2 className="text-lg font-bold mb-4">
+              Resultados del {selectedDate === new Date().toISOString().split('T')[0] ? 'Día' : new Date(selectedDate).toLocaleDateString('es-PE', { day: 'numeric', month: 'long' })}
+            </h2>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-bold">{stats.won}</div>
+                <div className="text-3xl font-bold">{realStats.wonPredictions}</div>
                 <div className="text-sm text-purple-100">Acertados</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold">{stats.lost}</div>
+                <div className="text-3xl font-bold">{realStats.lostPredictions}</div>
                 <div className="text-sm text-purple-100">Fallados</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold">{stats.accuracy}%</div>
+                <div className="text-3xl font-bold">{realStats.accuracy}%</div>
                 <div className="text-sm text-purple-100">Precisión</div>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-white/20">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-purple-100">Predicciones totales hoy:</span>
-                <span className="font-bold">{stats.total}</span>
+                <span className="text-sm text-purple-100">Predicciones totales:</span>
+                <span className="font-bold">{realStats.totalPredictions}</span>
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-sm text-purple-100">Cuota promedio:</span>
+                <span className="font-bold">{realStats.avgOdds}</span>
               </div>
             </div>
           </div>

@@ -15,6 +15,9 @@ export const API_ROUTES = {
   
   // Predictions
   PREDICTIONS: '/predictions',
+  PREDICTIONS_BY_DATE: '/predictions/by-date',
+  PREDICTIONS_DATES: '/predictions/dates',
+  PREDICTIONS_STATS: '/predictions/stats',
   UNLOCK_PREDICTION: '/predictions/:id/unlock',
   
   // User
@@ -31,6 +34,9 @@ export const API_ROUTES = {
   ADMIN_STATS: '/admin/stats',
   ADMIN_PREDICTIONS: '/admin/predictions',
   ADMIN_RESULT: '/admin/predictions/:id/result',
+  ADMIN_ANALYTICS: '/admin/analytics',
+  ADMIN_USERS: '/admin/users',
+  ADMIN_EXPORT: '/admin/export',
 };
 
 // Constantes de la aplicación
@@ -59,6 +65,17 @@ export const PREDICTION_TYPES = {
   CUSTOM: 'CUSTOM',
 };
 
+// Filtros de fecha para admin
+export const DATE_FILTERS = {
+  TODAY: 'today',
+  YESTERDAY: 'yesterday',
+  THIS_WEEK: 'this_week',
+  LAST_WEEK: 'last_week',
+  THIS_MONTH: 'this_month',
+  LAST_MONTH: 'last_month',
+  CUSTOM: 'custom'
+};
+
 // Configuración de notificaciones
 export const NOTIFICATION_CONFIG = {
   TYPES: {
@@ -80,6 +97,7 @@ export const STORAGE_KEYS = {
   PREFERENCES: 'ia_sport_preferences',
   LAST_SYNC: 'ia_sport_last_sync',
   CACHED_PREDICTIONS: 'ia_sport_cached_predictions',
+  ADMIN_FILTERS: 'ia_sport_admin_filters',
 };
 
 // Configuración PWA
@@ -105,4 +123,57 @@ export const VALIDATION = {
   MIN_PASSWORD_LENGTH: 6,
   MIN_NAME_LENGTH: 3,
   OTP_LENGTH: 6,
+};
+
+// Configuración de filtros para admin
+export const ADMIN_CONFIG = {
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 100,
+  DATE_RANGE_LIMIT: 90, // días
+  EXPORT_FORMATS: ['csv', 'xlsx', 'json'],
+  BULK_ACTION_LIMIT: 50,
+};
+
+// Métricas y KPIs
+export const METRICS = {
+  EXCELLENT_ACCURACY: 90,
+  GOOD_ACCURACY: 80,
+  FAIR_ACCURACY: 70,
+  EXCELLENT_ROI: 20,
+  GOOD_ROI: 10,
+  FAIR_ROI: 5,
+  HIGH_ODDS: 2.0,
+  MEDIUM_ODDS: 1.5,
+  LOW_ODDS: 1.2,
+};
+
+// Configuración de gráficos y visualizaciones
+export const CHART_CONFIG = {
+  COLORS: {
+    PRIMARY: '#2563eb',
+    SUCCESS: '#10b981',
+    WARNING: '#f59e0b',
+    ERROR: '#ef4444',
+    INFO: '#06b6d4',
+    PURPLE: '#8b5cf6',
+  },
+  GRADIENTS: {
+    BLUE: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    GREEN: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    RED: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+    PURPLE: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+  },
+};
+
+// Textos y mensajes comunes
+export const MESSAGES = {
+  LOADING: 'Cargando...',
+  NO_DATA: 'No hay datos disponibles',
+  ERROR_GENERIC: 'Ha ocurrido un error',
+  ERROR_NETWORK: 'Error de conexión',
+  SUCCESS_SAVE: 'Guardado exitosamente',
+  SUCCESS_DELETE: 'Eliminado exitosamente',
+  SUCCESS_UPDATE: 'Actualizado exitosamente',
+  CONFIRM_DELETE: '¿Estás seguro de eliminar este elemento?',
+  CONFIRM_LOGOUT: '¿Estás seguro de cerrar sesión?',
 };
