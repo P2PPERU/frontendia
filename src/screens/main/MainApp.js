@@ -1,9 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronRight, TrendingUp, Target, Clock, Home, BarChart3, Trophy, User, Check, Star, Brain, Zap, Calendar, RefreshCw, Lock, Video, Gift, AlertCircle, X, WifiOff, LogOut, ChevronDown, ChevronLeft } from 'lucide-react';
+import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
+import { 
+  ChevronRight, TrendingUp, Target, Clock, Home, BarChart3, Trophy, User, 
+  Check, Star, Brain, Zap, Calendar, RefreshCw, Lock, Video, Gift, 
+  AlertCircle, X, WifiOff, LogOut, ChevronDown, ChevronLeft 
+} from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import predictionsService from '../../services/api/predictions';
 import authService from '../../services/api/auth';
 import { APP_CONFIG } from '../../utils/constants';
+
+// Importar componentes de torneos
+import TournamentsScreen from '../tournaments/TournamentsScreen';
+import TournamentDetail from '../tournaments/TournamentDetail';
+import TournamentPlay from '../tournaments/TournamentPlay';
+import TournamentRanking from '../tournaments/TournamentRanking';
+import TournamentHistory from '../tournaments/TournamentHistory';
+
+// Importar componente de acceso rápido a torneos
+import TournamentQuickAccess from '../../hooks/TournamentQuickAccess';
 
 // Componente para selector de fechas
 const DateSelector = ({ selectedDate, onDateChange, availableDates }) => {
@@ -62,14 +77,16 @@ const DateSelector = ({ selectedDate, onDateChange, availableDates }) => {
 
 const MainApp = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('home');
+  const location = useLocation();
+  const { user, isPremium } = useAuth();
+  
+  // Estados para predicciones (pantalla principal)
   const [predictions, setPredictions] = useState([]);
-  const [allPredictions, setAllPredictions] = useState([]); // Para histórico
+  const [allPredictions, setAllPredictions] = useState([]);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
   const [freeViewsLeft, setFreeViewsLeft] = useState(0);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -87,16 +104,32 @@ const MainApp = () => {
     pendingPredictions: 0
   });
 
+  // Determinar la pestaña activa basada en la URL
+  const getActiveTab = () => {
+    const path = location.pathname;
+    if (path.includes('/tournaments')) return 'tournaments';
+    if (path.includes('/stats')) return 'stats';
+    if (path.includes('/premium')) return 'premium';
+    if (path.includes('/profile')) return 'profile';
+    return 'home';
+  };
+
+  const [activeTab, setActiveTab] = useState(getActiveTab());
+
+  // Actualizar pestaña activa cuando cambia la ubicación
+  useEffect(() => {
+    setActiveTab(getActiveTab());
+  }, [location.pathname]);
+
   // Verificar autenticación
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    if (!user || !authService.isAuthenticated()) {
+    const userInfo = authService.getCurrentUser();
+    if (!userInfo || !authService.isAuthenticated()) {
       navigate('/login', { replace: true });
     } else {
-      setUserData(user);
-      setIsPremium(user?.isPremium || false);
+      setUserData(userInfo);
     }
-  }, []);
+  }, [navigate]);
 
   // Detector de conexión
   useEffect(() => {
@@ -124,7 +157,6 @@ const MainApp = () => {
         const datePredictions = result.predictions || [];
         setPredictions(datePredictions);
         setFreeViewsLeft(result.freeViewsLeft || 0);
-        setIsPremium(result.isPremium || false);
         
         // Calcular estadísticas reales para la fecha seleccionada
         const stats = calculateRealStats(datePredictions);
@@ -171,15 +203,17 @@ const MainApp = () => {
   }, [loadPredictionsByDate, selectedDate]);
 
   useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
+    if (activeTab === 'home') {
+      loadInitialData();
+    }
+  }, [loadInitialData, activeTab]);
 
   // Cargar predicciones cuando cambie la fecha
   useEffect(() => {
-    if (selectedDate && availableDates.includes(selectedDate)) {
+    if (selectedDate && availableDates.includes(selectedDate) && activeTab === 'home') {
       loadPredictionsByDate(selectedDate);
     }
-  }, [selectedDate, loadPredictionsByDate, availableDates]);
+  }, [selectedDate, loadPredictionsByDate, availableDates, activeTab]);
 
   // Calcular estadísticas reales
   const calculateRealStats = (predictionsList) => {
@@ -291,6 +325,7 @@ const MainApp = () => {
     }
   };
 
+  // Modales
   const VideoModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
@@ -356,14 +391,14 @@ const MainApp = () => {
         </div>
         
         <button 
-          onClick={() => navigate('/premium')}
+          onClick={() => navigate('/app/premium')}
           className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl mb-3"
         >
           Pagar con Yape / Plin
         </button>
         
         <button 
-          onClick={() => navigate('/premium')}
+          onClick={() => navigate('/app/premium')}
           className="w-full bg-gray-100 text-gray-600 font-medium py-3 rounded-xl"
         >
           Otros Métodos de Pago
@@ -372,6 +407,7 @@ const MainApp = () => {
     </div>
   );
 
+  // Pantalla Home con predicciones
   const HomeScreen = () => {
     const resultsToShow = predictions.filter(p => p.result !== null && p.result !== 'PENDING');
     const isToday = selectedDate === new Date().toISOString().split('T')[0];
@@ -483,6 +519,11 @@ const MainApp = () => {
           </div>
         )}
 
+        {/* Tournament Quick Access */}
+        <div className="mx-4 mt-6">
+          <TournamentQuickAccess />
+        </div>
+
         {/* User Status Bar */}
         {!isPremium && isToday && (
           <div className="mx-4 mt-4 bg-orange-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
@@ -526,7 +567,7 @@ const MainApp = () => {
           ) : predictions.length === 0 ? (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No hay predicciones para esta fecha</p>
+              <p className="text-gray-600 mb-4">No hay predicciones para esta fecha</p>
               <button 
                 onClick={handleRefresh}
                 className="mt-4 text-blue-600 font-medium"
@@ -893,21 +934,21 @@ const MainApp = () => {
         <h2 className="text-lg font-bold text-gray-800 mb-4">Configuración</h2>
         <div className="space-y-4">
           <button 
-            onClick={() => navigate('/settings/notifications')}
+            onClick={() => navigate('/app/settings/notifications')}
             className="w-full flex items-center justify-between py-3 text-left"
           >
             <span className="text-gray-700">Notificaciones</span>
             <ChevronRight className="w-5 h-5 text-gray-400" />
           </button>
           <button 
-            onClick={() => navigate('/settings/preferences')}
+            onClick={() => navigate('/app/settings/preferences')}
             className="w-full flex items-center justify-between py-3 text-left"
           >
             <span className="text-gray-700">Preferencias</span>
             <ChevronRight className="w-5 h-5 text-gray-400" />
           </button>
           <button 
-            onClick={() => navigate('/settings/privacy')}
+            onClick={() => navigate('/app/settings/privacy')}
             className="w-full flex items-center justify-between py-3 text-left"
           >
             <span className="text-gray-700">Privacidad</span>
@@ -933,32 +974,41 @@ const MainApp = () => {
     </div>
   );
 
-  const screens = {
-    home: <HomeScreen />,
-    stats: <StatsScreen />,
-    premium: <PremiumScreen />,
-    profile: <ProfileScreen />
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Main Content */}
-      <div className="pb-16">
-        {screens[activeTab]}
-      </div>
+      {/* Rutas principales */}
+      <Routes>
+        {/* Ruta principal - Predicciones */}
+        <Route path="/" element={<HomeScreen />} />
+        <Route path="/home" element={<HomeScreen />} />
+        <Route path="/stats" element={<StatsScreen />} />
+        <Route path="/premium" element={<PremiumScreen />} />
+        <Route path="/profile" element={<ProfileScreen />} />
+        
+        {/* Rutas de torneos */}
+        <Route path="/tournaments" element={<TournamentsScreen />} />
+        <Route path="/tournaments/:id" element={<TournamentDetail />} />
+        <Route path="/tournaments/:id/play" element={<TournamentPlay />} />
+        <Route path="/tournaments/:id/ranking" element={<TournamentRanking />} />
+        <Route path="/tournaments/history" element={<TournamentHistory />} />
+        
+        {/* Ruta por defecto */}
+        <Route path="*" element={<HomeScreen />} />
+      </Routes>
 
       {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
         <div className="flex justify-around items-center py-2">
           {[
-            { id: 'home', icon: Home, label: 'Inicio' },
-            { id: 'stats', icon: BarChart3, label: 'Stats' },
-            { id: 'premium', icon: Trophy, label: 'Premium' },
-            { id: 'profile', icon: User, label: 'Perfil' }
+            { id: 'home', icon: Home, label: 'Inicio', path: '/app' },
+            { id: 'tournaments', icon: Trophy, label: 'Torneos', path: '/app/tournaments' },
+            { id: 'stats', icon: BarChart3, label: 'Stats', path: '/app/stats' },
+            { id: 'premium', icon: Star, label: 'Premium', path: '/app/premium' },
+            { id: 'profile', icon: User, label: 'Perfil', path: '/app/profile' }
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => navigate(tab.path)}
               className={`flex flex-col items-center py-2 px-4 ${
                 activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'
               }`}
