@@ -1,13 +1,14 @@
+// src/components/tournaments/TournamentQuickAccess.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, Zap, Users, Clock, ChevronRight, Star, DollarSign } from 'lucide-react';
-import { useTournaments } from './useTournaments';
-import TournamentTimer from '../components/tournaments/TournamentTimer';
+import { useTournaments } from '../../hooks/useTournaments';
+import TournamentTimer from './TournamentTimer';
 
 // Componente para mostrar acceso rápido a torneos en la pantalla principal
 const TournamentQuickAccess = ({ className = '' }) => {
   const navigate = useNavigate();
-  const { tournaments, loading, userBalance, loadTournaments } = useTournaments({
+  const { tournaments, loading, userBalance } = useTournaments({
     loadOnMount: true,
     autoRefresh: false
   });
@@ -126,7 +127,7 @@ const TournamentQuickAccess = ({ className = '' }) => {
                    tournament.status}
                 </div>
                 
-                {tournament.status === 'REGISTRATION' && (
+                {tournament.status === 'REGISTRATION' && tournament.registrationDeadline && (
                   <TournamentTimer
                     targetDate={tournament.registrationDeadline}
                     size="small"
@@ -135,7 +136,7 @@ const TournamentQuickAccess = ({ className = '' }) => {
                   />
                 )}
                 
-                {tournament.status === 'ACTIVE' && (
+                {tournament.status === 'ACTIVE' && tournament.endTime && (
                   <TournamentTimer
                     targetDate={tournament.endTime}
                     size="small"
@@ -144,7 +145,7 @@ const TournamentQuickAccess = ({ className = '' }) => {
                   />
                 )}
                 
-                {tournament.status === 'UPCOMING' && (
+                {tournament.status === 'UPCOMING' && tournament.startTime && (
                   <TournamentTimer
                     targetDate={tournament.startTime}
                     size="small"
@@ -192,7 +193,7 @@ export const TournamentStats = ({ className = '' }) => {
   const stats = {
     active: tournaments.filter(t => t.status === 'ACTIVE').length,
     registration: tournaments.filter(t => t.status === 'REGISTRATION').length,
-    totalPrizePool: tournaments.reduce((sum, t) => sum + t.prizePool, 0)
+    totalPrizePool: tournaments.reduce((sum, t) => sum + (t.prizePool || 0), 0)
   };
 
   if (tournaments.length === 0) return null;

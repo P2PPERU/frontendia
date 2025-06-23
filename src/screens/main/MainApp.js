@@ -18,7 +18,7 @@ import TournamentRanking from '../tournaments/TournamentRanking';
 import TournamentHistory from '../tournaments/TournamentHistory';
 
 // Importar componente de acceso rápido a torneos
-import TournamentQuickAccess from '../../hooks/TournamentQuickAccess';
+import TournamentQuickAccess from '../../components/tournaments/TournamentQuickAccess';
 
 // Componente para selector de fechas
 const DateSelector = ({ selectedDate, onDateChange, availableDates }) => {

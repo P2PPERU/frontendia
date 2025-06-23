@@ -60,21 +60,25 @@ const TournamentsScreen = () => {
     setError('');
 
     try {
+      console.log('🎯 Cargando torneos desde TournamentsScreen...');
       const result = await tournamentsService.getTournaments({
         limit: 50
       });
 
       if (result.success) {
-        setTournaments(result.tournaments);
-        setUserBalance(result.userBalance || 0);
+        console.log('✅ Torneos cargados:', result.tournaments);
+        setTournaments(result.tournaments || []);
+        setUserBalance(Number(result.userBalance) || 0);
         
         if (result.cached) {
           setError('Mostrando torneos guardados. Conecta a internet para actualizar.');
         }
       } else {
+        console.error('❌ Error cargando torneos:', result.message);
         setError(result.message || 'Error al cargar torneos');
       }
     } catch (err) {
+      console.error('❌ Error de conexión:', err);
       setError('Error de conexión. Verifica tu internet.');
     } finally {
       setLoading(false);
@@ -100,10 +104,10 @@ const TournamentsScreen = () => {
         filtered = filtered.filter(t => t.status === 'ACTIVE');
         break;
       case 'FREEROLL':
-        filtered = filtered.filter(t => t.buyIn === 0);
+        filtered = filtered.filter(t => (Number(t.buyIn) || 0) === 0);
         break;
       case 'PREMIUM':
-        filtered = filtered.filter(t => t.buyIn > 0);
+        filtered = filtered.filter(t => (Number(t.buyIn) || 0) > 0);
         break;
       default:
         // Mostrar todos
@@ -127,8 +131,32 @@ const TournamentsScreen = () => {
     navigate(`/app/tournaments/${tournament.id}`);
   };
 
-  // Calcular estadísticas rápidas
-  const stats = tournamentsService.calculateTournamentStats(tournaments);
+  // Calcular estadísticas rápidas - CON VALIDACIÓN SEGURA
+  const calculateStats = (tournamentsList) => {
+    const validTournaments = tournamentsList.filter(t => t && typeof t === 'object');
+    
+    const stats = {
+      total: validTournaments.length,
+      active: validTournaments.filter(t => t.status === 'ACTIVE').length,
+      registration: validTournaments.filter(t => t.status === 'REGISTRATION').length,
+      finished: validTournaments.filter(t => t.status === 'FINISHED').length,
+      freerolls: validTournaments.filter(t => (Number(t.buyIn) || 0) === 0).length,
+      paidTournaments: validTournaments.filter(t => (Number(t.buyIn) || 0) > 0).length,
+      totalParticipants: validTournaments.reduce((sum, t) => sum + (Number(t.currentPlayers) || 0), 0),
+      totalPrizePool: validTournaments.reduce((sum, t) => sum + (Number(t.prizePool) || 0), 0),
+      avgBuyIn: 0
+    };
+
+    // Calcular promedio de buy-in de forma segura
+    if (stats.total > 0) {
+      const totalBuyIn = validTournaments.reduce((sum, t) => sum + (Number(t.buyIn) || 0), 0);
+      stats.avgBuyIn = totalBuyIn / stats.total;
+    }
+
+    return stats;
+  };
+
+  const stats = calculateStats(tournaments);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -173,7 +201,7 @@ const TournamentsScreen = () => {
           </div>
         </div>
 
-        {/* Stats rápidas */}
+        {/* Stats rápidas - CON VALIDACIÓN */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
             <div className="text-2xl font-bold text-white">{stats.active}</div>
@@ -184,7 +212,9 @@ const TournamentsScreen = () => {
             <div className="text-xs text-blue-100">Registro</div>
           </div>
           <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
-            <div className="text-2xl font-bold text-white">S/ {stats.totalPrizePool.toFixed(0)}</div>
+            <div className="text-2xl font-bold text-white">
+              S/ {Number(stats.totalPrizePool).toFixed(0)}
+            </div>
             <div className="text-xs text-blue-100">Premios</div>
           </div>
         </div>
@@ -258,7 +288,7 @@ const TournamentsScreen = () => {
         )}
 
         {/* Torneos destacados */}
-        {activeFilter === 'ALL' && tournaments.some(t => t.featured) && (
+        {activeFilter === 'ALL' && tournaments.some(t => t.featured || t.isFeatured) && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-3">
               <Zap className="w-5 h-5 text-orange-500" />
@@ -267,7 +297,7 @@ const TournamentsScreen = () => {
             
             <div className="space-y-4">
               {tournaments
-                .filter(t => t.featured)
+                .filter(t => t.featured || t.isFeatured)
                 .slice(0, 2)
                 .map((tournament) => (
                   <TournamentCard
@@ -342,7 +372,7 @@ const TournamentsScreen = () => {
               <div className="text-2xl font-bold">
                 S/ {tournaments
                   .filter(t => t.requiresPremium)
-                  .reduce((sum, t) => sum + t.prizePool, 0)
+                  .reduce((sum, t) => sum + (Number(t.prizePool) || 0), 0)
                   .toFixed(0)}
               </div>
               <div className="text-xs text-purple-200">Premios Adicionales</div>
@@ -382,7 +412,7 @@ const TournamentsScreen = () => {
           <div className="mt-4 pt-4 border-t border-gray-700 text-center">
             <div className="text-sm text-gray-400 mb-1">Premio promedio</div>
             <div className="text-xl font-bold text-yellow-400">
-              S/ {(stats.totalPrizePool / Math.max(1, stats.total)).toFixed(0)}
+              S/ {stats.total > 0 ? (stats.totalPrizePool / stats.total).toFixed(0) : '0'}
             </div>
           </div>
         </div>

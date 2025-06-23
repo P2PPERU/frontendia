@@ -1,6 +1,7 @@
+// src/hooks/useTournaments.js
 import { useState, useCallback, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import tournamentsService from '../../services/api/tournaments';
+import { useAuth } from '../contexts/AuthContext';
+import tournamentsService from '../services/api/tournaments';
 
 export const useTournaments = (options = {}) => {
   const { user, isPremium } = useAuth();

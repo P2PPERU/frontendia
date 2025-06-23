@@ -20,6 +20,18 @@ export const API_ROUTES = {
   PREDICTIONS_STATS: '/predictions/stats',
   UNLOCK_PREDICTION: '/predictions/:id/unlock',
   
+  // Tournaments - AGREGADO Y CORREGIDO
+  TOURNAMENTS: '/tournaments',
+  TOURNAMENT_DETAIL: '/tournaments/:id',
+  TOURNAMENT_JOIN: '/tournaments/:id/join',
+  TOURNAMENT_LEAVE: '/tournaments/:id/leave',
+  TOURNAMENT_PREDICTIONS: '/tournaments/:tournamentId/predictions',
+  TOURNAMENT_PARTICIPANTS: '/tournaments/:id/participants',
+  TOURNAMENT_MATCHES: '/tournaments/:id/matches',
+  TOURNAMENT_RANKING: '/tournaments/ranking',
+  TOURNAMENT_USER_STATS: '/tournaments/user/stats',
+  TOURNAMENT_USER_HISTORY: '/tournaments/user/history',
+  
   // User
   PROFILE: '/users/profile',
   PREFERENCES: '/users/preferences',
@@ -56,6 +68,23 @@ export const PREDICTION_STATUS = {
   VOID: 'VOID',
 };
 
+// Estados de torneos - AGREGADO
+export const TOURNAMENT_STATUS = {
+  UPCOMING: 'UPCOMING',
+  REGISTRATION: 'REGISTRATION',
+  ACTIVE: 'ACTIVE',
+  FINISHED: 'FINISHED',
+  CANCELLED: 'CANCELLED',
+};
+
+// Tipos de torneo - AGREGADO
+export const TOURNAMENT_TYPES = {
+  FREEROLL: 'FREEROLL',
+  GUARANTEED: 'GUARANTEED',
+  SATELLITE: 'SATELLITE',
+  REGULAR: 'REGULAR',
+};
+
 // Tipos de predicción
 export const PREDICTION_TYPES = {
   '1X2': '1X2',
@@ -81,6 +110,8 @@ export const NOTIFICATION_CONFIG = {
   TYPES: {
     HOT_PREDICTION: 'hot_prediction',
     PREDICTION_RESULT: 'prediction_result',
+    TOURNAMENT_START: 'tournament_start',
+    TOURNAMENT_WIN: 'tournament_win',
     CUSTOM: 'custom',
   },
   PERMISSION_STATES: {
@@ -97,6 +128,7 @@ export const STORAGE_KEYS = {
   PREFERENCES: 'ia_sport_preferences',
   LAST_SYNC: 'ia_sport_last_sync',
   CACHED_PREDICTIONS: 'ia_sport_cached_predictions',
+  CACHED_TOURNAMENTS: 'ia_sport_cached_tournaments',
   ADMIN_FILTERS: 'ia_sport_admin_filters',
 };
 

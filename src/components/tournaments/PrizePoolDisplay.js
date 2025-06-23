@@ -2,7 +2,7 @@ import React from 'react';
 import { Trophy, TrendingUp, Award, Star } from 'lucide-react';
 
 const PrizePoolDisplay = ({ 
-  prizePool,
+  prizePool = 0,
   prizeDistribution = [],
   currency = 'S/',
   size = 'medium', // small, medium, large
@@ -11,14 +11,22 @@ const PrizePoolDisplay = ({
   growing = false,
   className = ''
 }) => {
-  // Formatear el monto del premio
+  // Formatear el monto del premio con validación
   const formatPrize = (amount) => {
-    if (amount >= 1000000) {
-      return `${currency} ${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `${currency} ${(amount / 1000).toFixed(1)}K`;
+    // Convertir a número y validar
+    const numAmount = Number(amount);
+    
+    // Si no es un número válido, retornar 0
+    if (isNaN(numAmount) || !isFinite(numAmount)) {
+      return `${currency} 0.00`;
+    }
+    
+    if (numAmount >= 1000000) {
+      return `${currency} ${(numAmount / 1000000).toFixed(1)}M`;
+    } else if (numAmount >= 1000) {
+      return `${currency} ${(numAmount / 1000).toFixed(1)}K`;
     } else {
-      return `${currency} ${amount.toFixed(2)}`;
+      return `${currency} ${numAmount.toFixed(2)}`;
     }
   };
 
@@ -51,13 +59,18 @@ const PrizePoolDisplay = ({
 
   const styles = getSizeStyles();
 
-  // Color del premio según la cantidad
+  // Color del premio según la cantidad - con validación
   const getPrizeColor = () => {
-    if (prizePool >= 1000) return 'text-purple-600';
-    if (prizePool >= 500) return 'text-blue-600';
-    if (prizePool >= 100) return 'text-green-600';
+    const numPrizePool = Number(prizePool) || 0;
+    
+    if (numPrizePool >= 1000) return 'text-purple-600';
+    if (numPrizePool >= 500) return 'text-blue-600';
+    if (numPrizePool >= 100) return 'text-green-600';
     return 'text-gray-600';
   };
+
+  // Validar prizePool
+  const validPrizePool = Number(prizePool) || 0;
 
   return (
     <div className={`${styles.container} ${className}`}>
@@ -70,7 +83,7 @@ const PrizePoolDisplay = ({
               Premio Total
             </div>
             <div className={`${styles.amount} ${getPrizeColor()} flex items-center`}>
-              {formatPrize(prizePool)}
+              {formatPrize(validPrizePool)}
               {growing && (
                 <TrendingUp className="w-4 h-4 ml-1 text-green-500 animate-pulse" />
               )}
@@ -97,7 +110,7 @@ const PrizePoolDisplay = ({
       </div>
 
       {/* Distribución de premios */}
-      {showDistribution && prizeDistribution.length > 0 && (
+      {showDistribution && Array.isArray(prizeDistribution) && prizeDistribution.length > 0 && (
         <div className="mt-3 p-3 bg-gray-50 rounded-xl">
           <div className="text-xs text-gray-600 mb-2 font-medium">
             Distribución de Premios
@@ -146,21 +159,31 @@ const PrizePoolDisplay = ({
 };
 
 // Componente simplificado para listas
-export const SimplePrizeDisplay = ({ prizePool, currency = 'S/', className = '' }) => {
+export const SimplePrizeDisplay = ({ prizePool = 0, currency = 'S/', className = '' }) => {
   const formatPrize = (amount) => {
-    if (amount >= 1000000) {
-      return `${currency} ${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      return `${currency} ${(amount / 1000).toFixed(1)}K`;
+    // Convertir a número y validar
+    const numAmount = Number(amount);
+    
+    // Si no es un número válido, retornar 0
+    if (isNaN(numAmount) || !isFinite(numAmount)) {
+      return `${currency} 0`;
+    }
+    
+    if (numAmount >= 1000000) {
+      return `${currency} ${(numAmount / 1000000).toFixed(1)}M`;
+    } else if (numAmount >= 1000) {
+      return `${currency} ${(numAmount / 1000).toFixed(1)}K`;
     } else {
-      return `${currency} ${amount.toFixed(0)}`;
+      return `${currency} ${numAmount.toFixed(0)}`;
     }
   };
 
   const getPrizeColor = () => {
-    if (prizePool >= 1000) return 'text-purple-600';
-    if (prizePool >= 500) return 'text-blue-600';
-    if (prizePool >= 100) return 'text-green-600';
+    const numPrizePool = Number(prizePool) || 0;
+    
+    if (numPrizePool >= 1000) return 'text-purple-600';
+    if (numPrizePool >= 500) return 'text-blue-600';
+    if (numPrizePool >= 100) return 'text-green-600';
     return 'text-gray-600';
   };
 
@@ -175,10 +198,14 @@ export const SimplePrizeDisplay = ({ prizePool, currency = 'S/', className = '' 
 };
 
 // Componente para mostrar el ROI potencial
-export const ROIDisplay = ({ buyIn, firstPrize, className = '' }) => {
-  if (buyIn === 0 || !firstPrize) return null;
+export const ROIDisplay = ({ buyIn = 0, firstPrize = 0, className = '' }) => {
+  // Validar entradas
+  const validBuyIn = Number(buyIn) || 0;
+  const validFirstPrize = Number(firstPrize) || 0;
+  
+  if (validBuyIn === 0 || validFirstPrize === 0) return null;
 
-  const roi = Math.round(((firstPrize - buyIn) / buyIn) * 100);
+  const roi = Math.round(((validFirstPrize - validBuyIn) / validBuyIn) * 100);
   
   const getROIColor = () => {
     if (roi >= 1000) return 'text-purple-600 bg-purple-100';

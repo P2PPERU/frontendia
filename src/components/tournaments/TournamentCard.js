@@ -11,28 +11,49 @@ const TournamentCard = ({
   onClick,
   showStatus = true 
 }) => {
+  // Validar datos del torneo con valores por defecto
+  const safeTournament = {
+    id: tournament?.id || 0,
+    name: tournament?.name || 'Torneo Sin Nombre',
+    description: tournament?.description || '',
+    status: tournament?.status || 'UPCOMING',
+    type: tournament?.type || 'REGULAR',
+    buyIn: Number(tournament?.buyIn) || 0,
+    prizePool: Number(tournament?.prizePool) || 0,
+    maxPlayers: Number(tournament?.maxPlayers) || 0,
+    currentPlayers: Number(tournament?.currentPlayers) || 0,
+    currency: tournament?.currency || 'S/',
+    featured: tournament?.featured || false,
+    requiresPremium: tournament?.requiresPremium || false,
+    prizeDistribution: tournament?.prizeDistribution || [],
+    registrationDeadline: tournament?.registrationDeadline || new Date().toISOString(),
+    startTime: tournament?.startTime || new Date().toISOString(),
+    endTime: tournament?.endTime || new Date().toISOString(),
+    ...tournament
+  };
+
   // Determinar si puede unirse
   const canJoin = () => {
-    if (tournament.status !== 'REGISTRATION') return false;
-    if (tournament.currentPlayers >= tournament.maxPlayers) return false;
-    if (new Date() > new Date(tournament.registrationDeadline)) return false;
-    if (tournament.buyIn > userBalance) return false;
-    if (tournament.requiresPremium && !isPremium) return false;
+    if (safeTournament.status !== 'REGISTRATION') return false;
+    if (safeTournament.currentPlayers >= safeTournament.maxPlayers) return false;
+    if (new Date() > new Date(safeTournament.registrationDeadline)) return false;
+    if (safeTournament.buyIn > userBalance) return false;
+    if (safeTournament.requiresPremium && !isPremium) return false;
     return true;
   };
 
   // Determinar el color del borde según el estado
   const getBorderColor = () => {
     if (isRegistered) return 'border-green-500';
-    if (tournament.type === 'FREEROLL') return 'border-blue-500';
-    if (tournament.buyIn > 20) return 'border-purple-500';
-    if (tournament.status === 'ACTIVE') return 'border-orange-500';
+    if (safeTournament.type === 'FREEROLL') return 'border-blue-500';
+    if (safeTournament.buyIn > 20) return 'border-purple-500';
+    if (safeTournament.status === 'ACTIVE') return 'border-orange-500';
     return 'border-gray-200';
   };
 
   // Determinar el estado visual
   const getStatusInfo = () => {
-    switch (tournament.status) {
+    switch (safeTournament.status) {
       case 'UPCOMING':
         return { text: 'Próximamente', color: 'text-gray-600', bg: 'bg-gray-100' };
       case 'REGISTRATION':
@@ -50,8 +71,10 @@ const TournamentCard = ({
 
   const statusInfo = getStatusInfo();
   const canUserJoin = canJoin();
-  const isFull = tournament.currentPlayers >= tournament.maxPlayers;
-  const fillPercentage = (tournament.currentPlayers / tournament.maxPlayers) * 100;
+  const isFull = safeTournament.currentPlayers >= safeTournament.maxPlayers;
+  const fillPercentage = safeTournament.maxPlayers > 0 
+    ? (safeTournament.currentPlayers / safeTournament.maxPlayers) * 100 
+    : 0;
 
   return (
     <div 
@@ -63,21 +86,21 @@ const TournamentCard = ({
         {/* Badges superiores */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            {tournament.type === 'FREEROLL' && (
+            {safeTournament.type === 'FREEROLL' && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
                 <Star className="w-3 h-3 mr-1" />
                 GRATIS
               </span>
             )}
             
-            {tournament.featured && (
+            {safeTournament.featured && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800">
                 <Zap className="w-3 h-3 mr-1" />
                 DESTACADO
               </span>
             )}
             
-            {tournament.requiresPremium && (
+            {safeTournament.requiresPremium && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
                 <Lock className="w-3 h-3 mr-1" />
                 PREMIUM
@@ -94,19 +117,19 @@ const TournamentCard = ({
 
         {/* Título y descripción */}
         <h3 className="text-lg font-bold text-gray-800 mb-1 line-clamp-1">
-          {tournament.name}
+          {safeTournament.name}
         </h3>
         
-        {tournament.description && (
+        {safeTournament.description && (
           <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-            {tournament.description}
+            {safeTournament.description}
           </p>
         )}
 
         {/* Prize Pool */}
         <PrizePoolDisplay 
-          prizePool={tournament.prizePool}
-          currency={tournament.currency || 'S/'}
+          prizePool={safeTournament.prizePool}
+          currency={safeTournament.currency}
           size="large"
         />
       </div>
@@ -120,7 +143,7 @@ const TournamentCard = ({
             <div>
               <div className="text-xs text-gray-500">Buy-in</div>
               <div className="font-bold text-gray-800">
-                {tournament.buyIn === 0 ? 'GRATIS' : `S/ ${tournament.buyIn}`}
+                {safeTournament.buyIn === 0 ? 'GRATIS' : `${safeTournament.currency} ${safeTournament.buyIn}`}
               </div>
             </div>
           </div>
@@ -131,7 +154,7 @@ const TournamentCard = ({
             <div>
               <div className="text-xs text-gray-500">Jugadores</div>
               <div className="font-bold text-gray-800">
-                {tournament.currentPlayers}/{tournament.maxPlayers}
+                {safeTournament.currentPlayers}/{safeTournament.maxPlayers}
               </div>
             </div>
           </div>
@@ -158,42 +181,42 @@ const TournamentCard = ({
 
       {/* Timer y Estado */}
       <div className="px-4 py-3 border-t border-gray-100">
-        {tournament.status === 'REGISTRATION' && (
+        {safeTournament.status === 'REGISTRATION' && (
           <div className="mb-2">
             <div className="flex items-center text-xs text-gray-600 mb-1">
               <Clock className="w-3 h-3 mr-1" />
               Registro termina en:
             </div>
             <TournamentTimer 
-              targetDate={tournament.registrationDeadline}
+              targetDate={safeTournament.registrationDeadline}
               size="small"
               showLabels={false}
             />
           </div>
         )}
 
-        {tournament.status === 'UPCOMING' && (
+        {safeTournament.status === 'UPCOMING' && (
           <div className="mb-2">
             <div className="flex items-center text-xs text-gray-600 mb-1">
               <Clock className="w-3 h-3 mr-1" />
               Inicia en:
             </div>
             <TournamentTimer 
-              targetDate={tournament.startTime}
+              targetDate={safeTournament.startTime}
               size="small"
               showLabels={false}
             />
           </div>
         )}
 
-        {tournament.status === 'ACTIVE' && (
+        {safeTournament.status === 'ACTIVE' && (
           <div className="mb-2">
             <div className="flex items-center text-xs text-gray-600 mb-1">
               <Clock className="w-3 h-3 mr-1" />
               Termina en:
             </div>
             <TournamentTimer 
-              targetDate={tournament.endTime}
+              targetDate={safeTournament.endTime}
               size="small"
               showLabels={false}
             />
@@ -210,11 +233,11 @@ const TournamentCard = ({
 
           {/* Indicadores de acceso */}
           <div className="flex items-center gap-2">
-            {!canUserJoin && tournament.status === 'REGISTRATION' && (
+            {!canUserJoin && safeTournament.status === 'REGISTRATION' && (
               <div className="text-xs text-red-600 font-medium">
                 {isFull ? 'Lleno' : 
-                 tournament.buyIn > userBalance ? 'Sin balance' :
-                 tournament.requiresPremium && !isPremium ? 'Premium' :
+                 safeTournament.buyIn > userBalance ? 'Sin balance' :
+                 safeTournament.requiresPremium && !isPremium ? 'Premium' :
                  'No disponible'}
               </div>
             )}
@@ -235,7 +258,7 @@ const TournamentCard = ({
       </div>
 
       {/* Overlay para torneos no disponibles */}
-      {tournament.requiresPremium && !isPremium && (
+      {safeTournament.requiresPremium && !isPremium && (
         <div className="absolute inset-0 bg-black bg-opacity-10 flex items-center justify-center">
           <div className="bg-white rounded-full p-3 shadow-lg">
             <Lock className="w-6 h-6 text-purple-600" />
