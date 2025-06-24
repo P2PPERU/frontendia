@@ -41,21 +41,186 @@ class TournamentsAdminService {
     }
   }
 
-  // Crear nuevo torneo
-  async createTournament(tournamentData) {
+  // Validar datos del torneo antes de enviar
+  validateTournamentData(data) {
+    const errors = {};
+    
+    // Validaciones básicas
+    if (!data.name?.trim()) {
+      errors.name = 'El nombre es requerido';
+    } else if (data.name.length < 3) {
+      errors.name = 'El nombre debe tener al menos 3 caracteres';
+    }
+    
+    if (!data.description?.trim()) {
+      errors.description = 'La descripción es requerida';
+    }
+    
+    if (data.buyIn < 0) {
+      errors.buyIn = 'El buy-in no puede ser negativo';
+    }
+    
+    if (data.prizePool < 0) {
+      errors.prizePool = 'El prize pool no puede ser negativo';
+    }
+    
+    if (data.maxPlayers < data.minPlayers) {
+      errors.maxPlayers = 'El máximo debe ser mayor al mínimo';
+    }
+    
+    if (data.minPlayers < 2) {
+      errors.minPlayers = 'Mínimo 2 jugadores requeridos';
+    }
+    
+    // Validaciones de fechas
+    const now = new Date();
+    const startTime = new Date(data.startTime);
+    const endTime = new Date(data.endTime);
+    const regDeadline = new Date(data.registrationDeadline);
+    
+    if (!data.startTime) {
+      errors.startTime = 'Fecha de inicio requerida';
+    } else if (startTime <= now) {
+      errors.startTime = 'La fecha de inicio debe ser futura';
+    }
+    
+    if (!data.endTime) {
+      errors.endTime = 'Fecha de fin requerida';
+    } else if (endTime <= startTime) {
+      errors.endTime = 'La fecha de fin debe ser posterior al inicio';
+    }
+    
+    if (!data.registrationDeadline) {
+      errors.registrationDeadline = 'Deadline de registro requerido';
+    } else if (regDeadline >= startTime) {
+      errors.registrationDeadline = 'El registro debe cerrar antes del inicio';
+    }
+    
+    // Validar distribución de premios
+    if (data.prizeDistribution) {
+      const total = data.prizeDistribution.reduce((sum, p) => sum + Number(p), 0);
+      if (Math.abs(total - 100) > 0.01) {
+        errors.prizeDistribution = `La distribución debe sumar 100% (actual: ${total.toFixed(1)}%)`;
+      }
+    }
+    
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors
+    };
+  }
+
+  // Preparar datos para el backend
+  prepareTournamentData(formData) {
+    return {
+      // Información básica
+      name: formData.name?.trim(),
+      description: formData.description?.trim(),
+      status: formData.status,
+      type: formData.type,
+      sport: formData.sport,
+      
+      // Configuración financiera
+      buyIn: Number(formData.buyIn) || 0,
+      prizePool: Number(formData.prizePool) || 0,
+      currency: formData.currency,
+      guaranteed: formData.guaranteed || false,
+      
+      // Participantes
+      maxPlayers: Number(formData.maxPlayers) || 100,
+      minPlayers: Number(formData.minPlayers) || 10,
+      
+      // Fechas (convertir a ISO)
+      startTime: new Date(formData.startTime).toISOString(),
+      endTime: new Date(formData.endTime).toISOString(),
+      registrationDeadline: new Date(formData.registrationDeadline).toISOString(),
+      
+      // Configuración de acceso
+      featured: formData.featured || false,
+      requiresPremium: formData.requiresPremium || false,
+      growing: formData.growing || false,
+      
+      // Distribución de premios (convertir porcentajes a montos)
+      prizeDistribution: formData.prizeDistribution?.map(percentage => 
+        Math.round((formData.prizePool * Number(percentage)) / 100)
+      ) || [],
+      
+      // Configuración adicional
+      rules: formData.rules?.trim() || '',
+      allowLateRegistration: formData.allowLateRegistration || false,
+      predictionsRequired: Number(formData.predictionsRequired) || 5,
+      confidenceBonus: formData.confidenceBonus !== false,
+      streakBonus: formData.streakBonus !== false,
+      difficulty: formData.difficulty || 'MEDIUM',
+      
+      // Metadatos
+      tags: formData.tags || [],
+      metadata: {
+        createdBy: 'admin',
+        formVersion: '2.0'
+      }
+    };
+  }
+
+  // Crear nuevo torneo con validación
+  async createTournament(formData) {
     try {
+      // Validar datos
+      const validation = this.validateTournamentData(formData);
+      if (!validation.isValid) {
+        return {
+          success: false,
+          message: 'Datos de torneo inválidos',
+          errors: validation.errors
+        };
+      }
+      
+      // Preparar datos
+      const tournamentData = this.prepareTournamentData(formData);
+      
       const response = await api.post('/admin/tournaments', tournamentData);
+      
+      if (response.data.success) {
+        return {
+          success: true,
+          data: this.normalizeTournamentData(response.data.data),
+          message: response.data.message || 'Torneo creado exitosamente'
+        };
+      }
+      
       return response.data;
     } catch (error) {
       return api.handleError(error);
     }
   }
 
-  // Actualizar torneo existente
-  async updateTournament(id, data) {
+  // Actualizar torneo existente con validación
+  async updateTournament(id, formData) {
     try {
+      // Validar datos (menos estricto para edición)
+      const validation = this.validateTournamentData(formData);
+      if (!validation.isValid) {
+        return {
+          success: false,
+          message: 'Datos de torneo inválidos',
+          errors: validation.errors
+        };
+      }
+      
+      // Preparar datos
+      const tournamentData = this.prepareTournamentData(formData);
+      
       const url = `/admin/tournaments/${id}`;
-      const response = await api.put(url, data);
+      const response = await api.put(url, tournamentData);
+      
+      if (response.data.success) {
+        return {
+          success: true,
+          data: this.normalizeTournamentData(response.data.data),
+          message: response.data.message || 'Torneo actualizado exitosamente'
+        };
+      }
+      
       return response.data;
     } catch (error) {
       return api.handleError(error);
@@ -92,6 +257,48 @@ class TournamentsAdminService {
       return response.data;
     } catch (error) {
       return api.handleError(error);
+    }
+  }
+
+  // Obtener plantillas de torneo
+  async getTournamentTemplates() {
+    try {
+      const response = await api.get('/admin/tournaments/templates');
+      return response.data;
+    } catch (error) {
+      return api.handleError(error);
+    }
+  }
+
+  // Duplicar torneo
+  async duplicateTournament(id) {
+    try {
+      const response = await api.post(`/admin/tournaments/${id}/duplicate`);
+      
+      if (response.data.success) {
+        return {
+          success: true,
+          data: this.normalizeTournamentData(response.data.data),
+          message: 'Torneo duplicado exitosamente'
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      return api.handleError(error);
+    }
+  }
+
+  // Validar disponibilidad de nombre
+  async checkNameAvailability(name, excludeId = null) {
+    try {
+      const params = new URLSearchParams({ name });
+      if (excludeId) params.append('excludeId', excludeId);
+      
+      const response = await api.get(`/admin/tournaments/check-name?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      return { success: false, available: false };
     }
   }
 
@@ -158,6 +365,35 @@ class TournamentsAdminService {
     }
   }
 
+  // Calcular estadísticas predictivas
+  calculateTournamentProjections(formData) {
+    const buyIn = Number(formData.buyIn) || 0;
+    const maxPlayers = Number(formData.maxPlayers) || 0;
+    const prizePool = Number(formData.prizePool) || 0;
+    
+    // Estimaciones
+    const maxRevenue = buyIn * maxPlayers;
+    const expectedParticipants = Math.round(maxPlayers * 0.7); // 70% ocupación esperada
+    const expectedRevenue = buyIn * expectedParticipants;
+    const rake = maxRevenue - prizePool;
+    const rakePercentage = maxRevenue > 0 ? (rake / maxRevenue) * 100 : 0;
+    
+    // ROI para diferentes posiciones
+    const firstPlaceRoi = prizePool > 0 && formData.prizeDistribution?.length > 0 
+      ? (((prizePool * formData.prizeDistribution[0] / 100) - buyIn) / buyIn) * 100 
+      : 0;
+    
+    return {
+      maxRevenue,
+      expectedRevenue,
+      expectedParticipants,
+      rake,
+      rakePercentage: Math.round(rakePercentage * 10) / 10,
+      firstPlaceRoi: Math.round(firstPlaceRoi * 10) / 10,
+      breakEvenParticipants: prizePool > 0 ? Math.ceil(prizePool / buyIn) : 0
+    };
+  }
+
   // Normalizar datos del torneo para la tabla
   normalizeTournamentData(tournament) {
     if (!tournament) return null;
@@ -165,18 +401,31 @@ class TournamentsAdminService {
     return {
       id: tournament.id,
       name: tournament.name || 'Sin nombre',
+      description: tournament.description || '',
       status: tournament.status || 'UPCOMING',
       type: tournament.type || 'REGULAR',
+      sport: tournament.sport || 'football',
       buyIn: Number(tournament.buyIn) || 0,
       prizePool: Number(tournament.prizePool) || 0,
+      currency: tournament.currency || 'S/',
       maxPlayers: Number(tournament.maxPlayers) || 0,
       currentPlayers: Number(tournament.currentPlayers) || 0,
+      minPlayers: Number(tournament.minPlayers) || 0,
       featured: tournament.featured || false,
       requiresPremium: tournament.requiresPremium || false,
       guaranteed: tournament.guaranteed || false,
+      growing: tournament.growing || false,
       startTime: tournament.startTime,
       endTime: tournament.endTime,
       registrationDeadline: tournament.registrationDeadline,
+      prizeDistribution: tournament.prizeDistribution || tournament.payoutStructure || [],
+      rules: tournament.rules || '',
+      allowLateRegistration: tournament.allowLateRegistration || false,
+      predictionsRequired: tournament.predictionsRequired || 5,
+      confidenceBonus: tournament.confidenceBonus !== false,
+      streakBonus: tournament.streakBonus !== false,
+      difficulty: tournament.difficulty || 'MEDIUM',
+      tags: tournament.tags || [],
       createdAt: tournament.createdAt || tournament.created_at,
       updatedAt: tournament.updatedAt || tournament.updated_at,
       

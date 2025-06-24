@@ -6,6 +6,7 @@ import {
 import tournamentsAdminService from '../../../services/api/tournamentsAdmin';
 import TournamentFilters from './components/TournamentFilters';
 import TournamentsTable from './components/TournamentsTable';
+import TournamentForm from './components/TournamentForm';
 
 const TournamentsAdminPanel = () => {
   // Estados principales
@@ -186,10 +187,28 @@ const TournamentsAdminPanel = () => {
     // TODO: Implementar navegación a vista detallada
   };
 
+  // Funciones para manejar el formulario
+  const handleCreateTournament = () => {
+    setEditingTournament(null);
+    setShowCreateModal(true);
+  };
+
   const handleEditTournament = (tournament) => {
-    console.log('✏️ Editar torneo:', tournament.id);
     setEditingTournament(tournament);
     setShowEditModal(true);
+  };
+
+  const handleFormSave = async (tournamentData) => {
+    // Recargar la lista de torneos
+    await loadTournaments();
+    // Mostrar notificación de éxito
+    alert(editingTournament ? 'Torneo actualizado exitosamente' : 'Torneo creado exitosamente');
+  };
+
+  const handleCloseForm = () => {
+    setShowCreateModal(false);
+    setShowEditModal(false);
+    setEditingTournament(null);
   };
 
   const handleDeleteTournament = async (tournament) => {
@@ -320,7 +339,7 @@ const TournamentsAdminPanel = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={handleCreateTournament}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
@@ -416,6 +435,24 @@ const TournamentsAdminPanel = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modales */}
+      {showCreateModal && (
+        <TournamentForm
+          isOpen={showCreateModal}
+          onClose={handleCloseForm}
+          onSave={handleFormSave}
+        />
+      )}
+
+      {showEditModal && (
+        <TournamentForm
+          tournament={editingTournament}
+          isOpen={showEditModal}
+          onClose={handleCloseForm}
+          onSave={handleFormSave}
+        />
       )}
     </div>
   );
