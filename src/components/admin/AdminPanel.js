@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Save, X, TrendingUp, Users, DollarSign, Check, AlertCircle, RefreshCw, Star, LogOut, WifiOff, Calendar, Filter, BarChart3, Target } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, TrendingUp, Users, DollarSign, Check, AlertCircle, RefreshCw, Star, LogOut, WifiOff, Calendar, Filter, BarChart3, Target, Trophy } from 'lucide-react';
 import adminService from '../../services/api/admin';
 import authService from '../../services/api/auth';
 import predictionsService from '../../services/api/predictions';
 import { PREDICTION_TYPES, DATE_FILTERS } from '../../utils/constants';
+import TournamentsAdminPanel from './tournaments/TournamentsAdminPanel';
 
 // ✅ COMPONENTE MOVIDO FUERA PARA EVITAR RE-CREACIÓN
 const PredictionForm = ({
@@ -269,6 +270,9 @@ const AdminPanel = () => {
   const [dateFilter, setDateFilter] = useState(DATE_FILTERS.TODAY);
   const [customDate, setCustomDate] = useState(new Date().toISOString().split('T')[0]);
   
+  // Nuevo estado para la pestaña activa
+  const [activeTab, setActiveTab] = useState('predictions');
+  
   // Estados para estadísticas reales
   const [realStats, setRealStats] = useState({
     totalUsers: 0,
@@ -457,8 +461,10 @@ const AdminPanel = () => {
   }, [dateFilter, customDate]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (activeTab === 'predictions') {
+      loadData();
+    }
+  }, [loadData, activeTab]);
 
   // Manejar cambio de filtro de fecha
   const handleDateFilterChange = (newFilter) => {
@@ -688,7 +694,7 @@ const AdminPanel = () => {
           <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold">Panel de Administrador</h1>
-              <p className="text-blue-100">Gestión de predicciones deportivas</p>
+              <p className="text-blue-100">Gestión de predicciones deportivas y torneos</p>
             </div>
             <div className="flex items-center gap-3">
               {!isOnline && (
@@ -705,330 +711,365 @@ const AdminPanel = () => {
               </button>
             </div>
           </div>
+          
+          {/* Pestañas de navegación */}
+          <div className="flex gap-1 mt-4">
+            <button
+              onClick={() => setActiveTab('predictions')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'predictions' 
+                  ? 'bg-white text-blue-600' 
+                  : 'bg-white/20 text-blue-100 hover:bg-white/30'
+              }`}
+            >
+              <Target className="w-4 h-4" />
+              Predicciones
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('tournaments')}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'tournaments' 
+                  ? 'bg-white text-blue-600' 
+                  : 'bg-white/20 text-blue-100 hover:bg-white/30'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              Torneos
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto p-6">
-        {/* Error Message */}
-        {error && !showAddForm && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm">
-            <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {/* Date Filters */}
-        <DateFilters
-          selectedFilter={dateFilter}
-          onFilterChange={handleDateFilterChange}
-          customDate={customDate}
-          onCustomDateChange={handleCustomDateChange}
-        />
-
-        {/* Stats Cards - CON DATOS REALES */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Users className="w-8 h-8 text-blue-600" />
-              <span className="text-xs text-gray-500">Total</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-800">{realStats.totalUsers || 0}</div>
-            <div className="text-sm text-gray-600">Usuarios totales</div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Star className="w-8 h-8 text-yellow-500" />
-              <span className="text-xs text-gray-500">Premium</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-800">{realStats.premiumUsers || 0}</div>
-            <div className="text-sm text-gray-600">Usuarios Premium</div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <DollarSign className="w-8 h-8 text-green-600" />
-              <span className="text-xs text-gray-500">Semana</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-800">S/ {realStats.weeklyRevenue || 0}</div>
-            <div className="text-sm text-gray-600">Ingresos semanales</div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Target className="w-8 h-8 text-purple-600" />
-              <span className="text-xs text-gray-500">Precisión</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-800">{realStats.successRate || 0}%</div>
-            <div className="text-sm text-gray-600">Tasa de acierto</div>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-8 h-8 text-indigo-600" />
-              <span className="text-xs text-gray-500">Cuota</span>
-            </div>
-            <div className="text-2xl font-bold text-gray-800">{realStats.avgOdds || '0.00'}</div>
-            <div className="text-sm text-gray-600">Cuota promedio</div>
-          </div>
-        </div>
-
-        {/* Results Summary - CON DATOS REALES */}
-        {realStats.todayPredictions > 0 && (
-          <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl p-6 mb-6">
-            <h3 className="text-lg font-bold mb-4">Resultados de {getPeriodTitle()}</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-400">{realStats.wonPredictions}</div>
-                <div className="text-sm text-gray-300">Acertados</div>
+        {/* Renderizar contenido según pestaña activa */}
+        {activeTab === 'predictions' ? (
+          <div>
+            {/* Error Message */}
+            {error && !showAddForm && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700 text-sm">
+                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                {error}
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-red-400">{realStats.lostPredictions}</div>
-                <div className="text-sm text-gray-300">Fallados</div>
+            )}
+
+            {/* Date Filters */}
+            <DateFilters
+              selectedFilter={dateFilter}
+              onFilterChange={handleDateFilterChange}
+              customDate={customDate}
+              onCustomDateChange={handleCustomDateChange}
+            />
+
+            {/* Stats Cards - CON DATOS REALES */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Users className="w-8 h-8 text-blue-600" />
+                  <span className="text-xs text-gray-500">Total</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-800">{realStats.totalUsers || 0}</div>
+                <div className="text-sm text-gray-600">Usuarios totales</div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-yellow-400">{realStats.pendingPredictions}</div>
-                <div className="text-sm text-gray-300">Pendientes</div>
+              
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Star className="w-8 h-8 text-yellow-500" />
+                  <span className="text-xs text-gray-500">Premium</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-800">{realStats.premiumUsers || 0}</div>
+                <div className="text-sm text-gray-600">Usuarios Premium</div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-orange-400">{realStats.hotPredictions}</div>
-                <div className="text-sm text-gray-300">Calientes</div>
+              
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <DollarSign className="w-8 h-8 text-green-600" />
+                  <span className="text-xs text-gray-500">Semana</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-800">S/ {realStats.weeklyRevenue || 0}</div>
+                <div className="text-sm text-gray-600">Ingresos semanales</div>
+              </div>
+              
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Target className="w-8 h-8 text-purple-600" />
+                  <span className="text-xs text-gray-500">Precisión</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-800">{realStats.successRate || 0}%</div>
+                <div className="text-sm text-gray-600">Tasa de acierto</div>
+              </div>
+              
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <TrendingUp className="w-8 h-8 text-indigo-600" />
+                  <span className="text-xs text-gray-500">Cuota</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-800">{realStats.avgOdds || '0.00'}</div>
+                <div className="text-sm text-gray-600">Cuota promedio</div>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-700 grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold">{realStats.avgConfidence || 0}%</div>
-                <div className="text-sm text-gray-300">Confianza Promedio</div>
+
+            {/* Results Summary - CON DATOS REALES */}
+            {realStats.todayPredictions > 0 && (
+              <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-bold mb-4">Resultados de {getPeriodTitle()}</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-green-400">{realStats.wonPredictions}</div>
+                    <div className="text-sm text-gray-300">Acertados</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-red-400">{realStats.lostPredictions}</div>
+                    <div className="text-sm text-gray-300">Fallados</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-yellow-400">{realStats.pendingPredictions}</div>
+                    <div className="text-sm text-gray-300">Pendientes</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-orange-400">{realStats.hotPredictions}</div>
+                    <div className="text-sm text-gray-300">Calientes</div>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-700 grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{realStats.avgConfidence || 0}%</div>
+                    <div className="text-sm text-gray-300">Confianza Promedio</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{realStats.todayPredictions}</div>
+                    <div className="text-sm text-gray-300">Total Predicciones</div>
+                  </div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">{realStats.todayPredictions}</div>
-                <div className="text-sm text-gray-300">Total Predicciones</div>
-              </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 mb-6">
-          <button
-            onClick={handleNewPrediction}
-            disabled={!isOnline}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center hover:bg-blue-700 disabled:opacity-50"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Predicción
-          </button>
-          
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className={`bg-gray-600 text-white px-4 py-2 rounded-lg font-medium flex items-center hover:bg-gray-700 ${loading ? 'animate-pulse' : ''}`}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Actualizar
-          </button>
-          
-          <button
-            onClick={() => window.print()}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium flex items-center hover:bg-green-700"
-          >
-            <BarChart3 className="w-4 h-4 mr-2" />
-            Exportar
-          </button>
-        </div>
-
-        {/* Add/Edit Form */}
-        {showAddForm && (
-          <PredictionForm
-            editingId={editingId}
-            formData={formData}
-            setFormData={setFormData}
-            error={error}
-            saving={saving}
-            isOnline={isOnline}
-            leagueOptions={leagueOptions}
-            predictionOptions={predictionOptions}
-            onSubmit={handleFormSubmit}
-            onCancel={handleFormCancel}
-          />
-        )}
-
-        {/* Predictions List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-800">Predicciones de {getPeriodTitle()}</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {filteredPredictions.length} predicciones encontradas
-            </p>
-          </div>
-          
-          {loading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-600 mt-4">Cargando predicciones...</p>
-            </div>
-          ) : filteredPredictions.length === 0 ? (
-            <div className="p-12 text-center">
-              <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">No hay predicciones para {getPeriodTitle()}</p>
+            {/* Action Buttons */}
+            <div className="flex gap-3 mb-6">
               <button
                 onClick={handleNewPrediction}
-                className="text-blue-600 font-medium hover:underline"
+                disabled={!isOnline}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium flex items-center hover:bg-blue-700 disabled:opacity-50"
               >
-                Agregar primera predicción
+                <Plus className="w-4 h-4 mr-2" />
+                Nueva Predicción
+              </button>
+              
+              <button
+                onClick={loadData}
+                disabled={loading}
+                className={`bg-gray-600 text-white px-4 py-2 rounded-lg font-medium flex items-center hover:bg-gray-700 ${loading ? 'animate-pulse' : ''}`}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Actualizar
+              </button>
+              
+              <button
+                onClick={() => window.print()}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium flex items-center hover:bg-green-700"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Exportar
               </button>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Liga</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Partido</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Predicción</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Confianza</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuota</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hora</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Resultado</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredPredictions.map((pred) => (
-                    <tr key={pred.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{pred.league}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{pred.match}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{pred.prediction}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden mr-2">
-                            <div 
-                              className={`h-full ${pred.confidence >= 90 ? 'bg-green-500' : pred.confidence >= 85 ? 'bg-yellow-500' : 'bg-orange-500'}`}
-                              style={{ width: `${pred.confidence}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-sm font-medium text-gray-900">{pred.confidence}%</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-bold text-green-600">{pred.odds}</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(pred.matchTime).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          {pred.isHot && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                              🔥 Caliente
-                            </span>
-                          )}
-                          {pred.isPremium && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                              Premium
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          {pred.result === 'PENDING' || !pred.result ? (
-                            <>
-                              <button
-                                onClick={() => handleResultUpdate(pred.id, 'WON')}
-                                className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors"
-                                title="Marcar como acertado"
-                                disabled={!isOnline}
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleResultUpdate(pred.id, 'LOST')}
-                                className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                                title="Marcar como fallado"
-                                disabled={!isOnline}
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </>
-                          ) : pred.result === 'WON' ? (
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                ✓ Acertado
-                              </span>
-                              <button
-                                onClick={() => handleResultUpdate(pred.id, 'PENDING')}
-                                className="text-gray-400 hover:text-gray-600"
-                                title="Resetear resultado"
-                                disabled={!isOnline}
-                              >
-                                <RefreshCw className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ) : pred.result === 'LOST' ? (
-                            <div className="flex items-center gap-2">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                ✗ Fallado
-                              </span>
-                              <button
-                                onClick={() => handleResultUpdate(pred.id, 'PENDING')}
-                                className="text-gray-400 hover:text-gray-600"
-                                title="Resetear resultado"
-                                disabled={!isOnline}
-                              >
-                                <RefreshCw className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(pred.id)}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
-                          disabled={!isOnline}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(pred.id)}
-                          className="text-red-600 hover:text-red-900"
-                          disabled={!isOnline}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
 
-        {/* Quick Tips */}
-        <div className="mt-6 bg-blue-50 rounded-xl p-6">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">Tips para el Administrador</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
-            <div className="flex items-start">
-              <Check className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>Agrega al menos 5-7 predicciones diarias para mantener el engagement</span>
+            {/* Add/Edit Form */}
+            {showAddForm && (
+              <PredictionForm
+                editingId={editingId}
+                formData={formData}
+                setFormData={setFormData}
+                error={error}
+                saving={saving}
+                isOnline={isOnline}
+                leagueOptions={leagueOptions}
+                predictionOptions={predictionOptions}
+                onSubmit={handleFormSubmit}
+                onCancel={handleFormCancel}
+              />
+            )}
+
+            {/* Predictions List */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-lg font-bold text-gray-800">Predicciones de {getPeriodTitle()}</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {filteredPredictions.length} predicciones encontradas
+                </p>
+              </div>
+              
+              {loading ? (
+                <div className="p-12 text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-600 mt-4">Cargando predicciones...</p>
+                </div>
+              ) : filteredPredictions.length === 0 ? (
+                <div className="p-12 text-center">
+                  <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-4">No hay predicciones para {getPeriodTitle()}</p>
+                  <button
+                    onClick={handleNewPrediction}
+                    className="text-blue-600 font-medium hover:underline"
+                  >
+                    Agregar primera predicción
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Liga</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Partido</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Predicción</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Confianza</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cuota</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hora</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Resultado</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {filteredPredictions.map((pred) => (
+                        <tr key={pred.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{pred.league}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{pred.match}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{pred.prediction}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden mr-2">
+                                <div 
+                                  className={`h-full ${pred.confidence >= 90 ? 'bg-green-500' : pred.confidence >= 85 ? 'bg-yellow-500' : 'bg-orange-500'}`}
+                                  style={{ width: `${pred.confidence}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm font-medium text-gray-900">{pred.confidence}%</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-bold text-green-600">{pred.odds}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {new Date(pred.matchTime).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              {pred.isHot && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                  🔥 Caliente
+                                </span>
+                              )}
+                              {pred.isPremium && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                  Premium
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              {pred.result === 'PENDING' || !pred.result ? (
+                                <>
+                                  <button
+                                    onClick={() => handleResultUpdate(pred.id, 'WON')}
+                                    className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors"
+                                    title="Marcar como acertado"
+                                    disabled={!isOnline}
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleResultUpdate(pred.id, 'LOST')}
+                                    className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                    title="Marcar como fallado"
+                                    disabled={!isOnline}
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </>
+                              ) : pred.result === 'WON' ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    ✓ Acertado
+                                  </span>
+                                  <button
+                                    onClick={() => handleResultUpdate(pred.id, 'PENDING')}
+                                    className="text-gray-400 hover:text-gray-600"
+                                    title="Resetear resultado"
+                                    disabled={!isOnline}
+                                  >
+                                    <RefreshCw className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ) : pred.result === 'LOST' ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    ✗ Fallado
+                                  </span>
+                                  <button
+                                    onClick={() => handleResultUpdate(pred.id, 'PENDING')}
+                                    className="text-gray-400 hover:text-gray-600"
+                                    title="Resetear resultado"
+                                    disabled={!isOnline}
+                                  >
+                                    <RefreshCw className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleEdit(pred.id)}
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                              disabled={!isOnline}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(pred.id)}
+                              className="text-red-600 hover:text-red-900"
+                              disabled={!isOnline}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            <div className="flex items-start">
-              <Check className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>Marca como "Caliente" las predicciones con mayor confianza</span>
-            </div>
-            <div className="flex items-start">
-              <Check className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>Mantén un balance 70/30 entre predicciones premium y gratuitas</span>
-            </div>
-            <div className="flex items-start">
-              <Check className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-              <span>Actualiza los resultados tan pronto como terminen los partidos</span>
+
+            {/* Quick Tips */}
+            <div className="mt-6 bg-blue-50 rounded-xl p-6">
+              <h3 className="text-lg font-bold text-blue-900 mb-3">Tips para el Administrador</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-800">
+                <div className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                  <span>Agrega al menos 5-7 predicciones diarias para mantener el engagement</span>
+                </div>
+                <div className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                  <span>Marca como "Caliente" las predicciones con mayor confianza</span>
+                </div>
+                <div className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                  <span>Mantén un balance 70/30 entre predicciones premium y gratuitas</span>
+                </div>
+                <div className="flex items-start">
+                  <Check className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                  <span>Actualiza los resultados tan pronto como terminen los partidos</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          // Panel de Torneos
+          <TournamentsAdminPanel />
+        )}
       </div>
     </div>
   );
