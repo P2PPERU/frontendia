@@ -4,6 +4,8 @@ import {
   Star, AlertCircle, Info, CheckCircle, Clock, Target
 } from 'lucide-react';
 
+import tournamentsAdminService from '../../../../services/api/tournamentsAdmin';
+
 // Tipos de torneos según el backend real
 const TOURNAMENT_TYPES = {
   'HYPER_TURBO': 'Hiper Turbo',
@@ -209,12 +211,14 @@ const TournamentForm = ({ tournament, isOpen, onClose, onSave }) => {
       console.log('Datos del torneo a enviar:', tournamentData);
       
       // Aquí iría la llamada al API
-      // const result = tournament 
-      //   ? await tournamentsAdminService.updateTournament(tournament.id, tournamentData)
-      //   : await tournamentsAdminService.createTournament(tournamentData);
-
-      // Simular respuesta exitosa
-      const result = { success: true };
+      let result;
+      if (tournament) {
+        // Actualizar torneo existente
+        result = await tournamentsAdminService.updateTournament(tournament.id, tournamentData);
+      } else {
+        // Crear nuevo torneo
+        result = await tournamentsAdminService.createTournament(tournamentData);
+      }
 
       if (result.success) {
         onSave(tournamentData);
