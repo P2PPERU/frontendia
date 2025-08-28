@@ -159,7 +159,7 @@ self.addEventListener('push', (event) => {
   console.log('[ServiceWorker] Push received');
   
   let data = {
-    title: 'IA Sport',
+    title: 'Predic Master',
     body: 'Nueva predicción caliente disponible 🔥',
     icon: '/logo192.png',
     badge: '/logo192.png'

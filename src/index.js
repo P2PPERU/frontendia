@@ -54,7 +54,7 @@ window.addEventListener('unhandledrejection', event => {
 
 // Detectar cuando la app se instala
 window.addEventListener('appinstalled', () => {
-  console.log('IA Sport PWA instalada');
+  console.log('Predic Master PWA instalada');
   // Aquí podrías enviar analytics
 });
 

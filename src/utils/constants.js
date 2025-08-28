@@ -53,7 +53,7 @@ export const API_ROUTES = {
 
 // Constantes de la aplicación
 export const APP_CONFIG = {
-  APP_NAME: 'IA SPORT',
+  APP_NAME: 'Predic Master',
   APP_VERSION: '1.0.0',
   FREE_VIEWS_PER_DAY: 2,
   PREMIUM_PRICE: 7.00,

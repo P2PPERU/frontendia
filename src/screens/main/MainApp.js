@@ -1,26 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
-  ChevronRight, TrendingUp, Target, Clock, Home, BarChart3, Trophy, User, 
-  Check, Star, Brain, Zap, Calendar, RefreshCw, Lock, Video, Gift, 
-  AlertCircle, X, WifiOff, LogOut, ChevronDown, ChevronLeft 
+  ChevronRight, TrendingUp, Target, Clock, Home, BarChart3, Trophy, User, Check, Star, Brain, Zap, Calendar, RefreshCw, Lock, Video, Gift, AlertCircle, X, WifiOff, LogOut, ChevronDown, ChevronLeft,
+  Crown, Users, DollarSign, Timer, Flame, Sword, Shield
 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
 import predictionsService from '../../services/api/predictions';
 import authService from '../../services/api/auth';
 import { APP_CONFIG } from '../../utils/constants';
 
 // Importar componentes de torneos
-import TournamentsScreen from '../tournaments/TournamentsScreen';
-import TournamentDetail from '../tournaments/TournamentDetail';
-import TournamentPlay from '../tournaments/TournamentPlay';
-import TournamentRanking from '../tournaments/TournamentRanking';
-import TournamentHistory from '../tournaments/TournamentHistory';
+import TournamentsMain from '../tournaments/TournamentsMain';
+import TournamentJoin from '../tournaments/TournamentJoin';
+import TournamentLive from '../tournaments/TournamentLive';
 
-// Importar componente de acceso rápido a torneos
-import TournamentQuickAccess from '../../components/tournaments/TournamentQuickAccess';
+// Importar datos mock para torneos
+import { generateTournamentMockData, generateTournamentUserStats } from '../../data/tournamentMockData';
 
-// Componente para selector de fechas
+// Componente para selector de fechas (mantener el existente)
 const DateSelector = ({ selectedDate, onDateChange, availableDates }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -77,16 +73,14 @@ const DateSelector = ({ selectedDate, onDateChange, availableDates }) => {
 
 const MainApp = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, isPremium } = useAuth();
-  
-  // Estados para predicciones (pantalla principal)
+  const [activeTab, setActiveTab] = useState('home');
   const [predictions, setPredictions] = useState([]);
-  const [allPredictions, setAllPredictions] = useState([]);
+  const [allPredictions, setAllPredictions] = useState([]); // Para histórico
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const [freeViewsLeft, setFreeViewsLeft] = useState(0);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -104,32 +98,23 @@ const MainApp = () => {
     pendingPredictions: 0
   });
 
-  // Determinar la pestaña activa basada en la URL
-  const getActiveTab = () => {
-    const path = location.pathname;
-    if (path.includes('/tournaments')) return 'tournaments';
-    if (path.includes('/stats')) return 'stats';
-    if (path.includes('/premium')) return 'premium';
-    if (path.includes('/profile')) return 'profile';
-    return 'home';
-  };
-
-  const [activeTab, setActiveTab] = useState(getActiveTab());
-
-  // Actualizar pestaña activa cuando cambia la ubicación
-  useEffect(() => {
-    setActiveTab(getActiveTab());
-  }, [location.pathname]);
+  // Estados para el sistema de torneos
+  const [tournamentsData, setTournamentsData] = useState({});
+  const [userTournamentStats, setUserTournamentStats] = useState({});
+  const [activeTournaments, setActiveTournaments] = useState([]);
+  const [tournamentView, setTournamentView] = useState('main'); // 'main', 'join', 'live'
+  const [selectedTournament, setSelectedTournament] = useState(null);
 
   // Verificar autenticación
   useEffect(() => {
-    const userInfo = authService.getCurrentUser();
-    if (!userInfo || !authService.isAuthenticated()) {
+    const user = authService.getCurrentUser();
+    if (!user || !authService.isAuthenticated()) {
       navigate('/login', { replace: true });
     } else {
-      setUserData(userInfo);
+      setUserData(user);
+      setIsPremium(user?.isPremium || false);
     }
-  }, [navigate]);
+  }, []);
 
   // Detector de conexión
   useEffect(() => {
@@ -145,6 +130,28 @@ const MainApp = () => {
     };
   }, []);
 
+  // Cargar datos de torneos
+  useEffect(() => {
+    const loadTournamentData = async () => {
+      try {
+        // En producción, esto vendría de tu API
+        const mockData = generateTournamentMockData();
+        const userStats = generateTournamentUserStats();
+        
+        setTournamentsData(mockData);
+        setUserTournamentStats(userStats);
+        
+        // Filtrar torneos activos del usuario
+        const activeUserTournaments = mockData.active || [];
+        setActiveTournaments(activeUserTournaments);
+      } catch (error) {
+        console.error('Error cargando datos de torneos:', error);
+      }
+    };
+
+    loadTournamentData();
+  }, []);
+
   // Cargar predicciones por fecha
   const loadPredictionsByDate = useCallback(async (date) => {
     setLoading(true);
@@ -157,6 +164,7 @@ const MainApp = () => {
         const datePredictions = result.predictions || [];
         setPredictions(datePredictions);
         setFreeViewsLeft(result.freeViewsLeft || 0);
+        setIsPremium(result.isPremium || false);
         
         // Calcular estadísticas reales para la fecha seleccionada
         const stats = calculateRealStats(datePredictions);
@@ -203,17 +211,15 @@ const MainApp = () => {
   }, [loadPredictionsByDate, selectedDate]);
 
   useEffect(() => {
-    if (activeTab === 'home') {
-      loadInitialData();
-    }
-  }, [loadInitialData, activeTab]);
+    loadInitialData();
+  }, [loadInitialData]);
 
   // Cargar predicciones cuando cambie la fecha
   useEffect(() => {
-    if (selectedDate && availableDates.includes(selectedDate) && activeTab === 'home') {
+    if (selectedDate && availableDates.includes(selectedDate)) {
       loadPredictionsByDate(selectedDate);
     }
-  }, [selectedDate, loadPredictionsByDate, availableDates, activeTab]);
+  }, [selectedDate, loadPredictionsByDate, availableDates]);
 
   // Calcular estadísticas reales
   const calculateRealStats = (predictionsList) => {
@@ -318,6 +324,52 @@ const MainApp = () => {
     }
   };
 
+  // Handlers para torneos
+  const handleTournamentSelect = (tournament) => {
+    setSelectedTournament(tournament);
+    if (tournament.status === 'LIVE' || tournament.status === 'ACTIVE') {
+      setTournamentView('live');
+    } else {
+      setTournamentView('join');
+    }
+  };
+
+  const handleBackToTournamentMain = () => {
+    setTournamentView('main');
+    setSelectedTournament(null);
+  };
+
+  const handleTournamentJoin = async (tournament, predictions) => {
+    try {
+      // Aquí conectarías con tu API de torneos
+      console.log('Joining tournament:', tournament.id, predictions);
+      
+      // Simular inscripción exitosa
+      alert(`¡Inscrito exitosamente en ${tournament.name}!`);
+      
+      // Cambiar a vista live
+      setTournamentView('live');
+      
+      // Actualizar datos locales
+      const updatedTournaments = { ...tournamentsData };
+      updatedTournaments.active = [...(updatedTournaments.active || []), {
+        id: tournament.id,
+        name: tournament.name,
+        participants: tournament.participants + 1,
+        prizePool: tournament.prizePool,
+        status: 'JOINED',
+        myPosition: Math.floor(Math.random() * tournament.participants) + 1,
+        myPoints: 0,
+        timeLeft: '3h 45m'
+      }];
+      
+      setTournamentsData(updatedTournaments);
+    } catch (error) {
+      console.error('Error joining tournament:', error);
+      alert('Error al inscribirse en el torneo. Intenta de nuevo.');
+    }
+  };
+
   // Cerrar sesión
   const handleLogout = () => {
     if (window.confirm('¿Estás seguro de cerrar sesión?')) {
@@ -325,7 +377,6 @@ const MainApp = () => {
     }
   };
 
-  // Modales
   const VideoModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
@@ -391,14 +442,14 @@ const MainApp = () => {
         </div>
         
         <button 
-          onClick={() => navigate('/app/premium')}
+          onClick={() => navigate('/premium')}
           className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold py-3 rounded-xl mb-3"
         >
           Pagar con Yape / Plin
         </button>
         
         <button 
-          onClick={() => navigate('/app/premium')}
+          onClick={() => navigate('/premium')}
           className="w-full bg-gray-100 text-gray-600 font-medium py-3 rounded-xl"
         >
           Otros Métodos de Pago
@@ -407,7 +458,6 @@ const MainApp = () => {
     </div>
   );
 
-  // Pantalla Home con predicciones
   const HomeScreen = () => {
     const resultsToShow = predictions.filter(p => p.result !== null && p.result !== 'PENDING');
     const isToday = selectedDate === new Date().toISOString().split('T')[0];
@@ -511,6 +561,45 @@ const MainApp = () => {
           </div>
         )}
 
+        {/* Tournament Quick Access - NUEVO */}
+        {activeTournaments.length > 0 && (
+          <div className="mx-4 mt-4 mb-2">
+            <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl p-4 shadow-lg">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center">
+                  <Trophy className="w-5 h-5 text-white mr-2" />
+                  <span className="text-sm font-bold text-white">Torneos Activos</span>
+                </div>
+                <button 
+                  onClick={() => setActiveTab('tournaments')}
+                  className="text-xs text-orange-100 hover:text-white"
+                >
+                  Ver todos →
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                {activeTournaments.slice(0, 2).map(tournament => (
+                  <div key={tournament.id} className="bg-white/20 backdrop-blur-sm rounded-lg p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-bold text-white">{tournament.name}</div>
+                        <div className="text-xs text-orange-100">
+                          Pos. #{tournament.myPosition} • {tournament.myPoints} pts
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-yellow-300">{tournament.timeLeft}</div>
+                        <div className="text-xs text-orange-200">S/ {tournament.prizePool}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Error/Offline message */}
         {error && (
           <div className="mx-4 mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3 flex items-center">
@@ -518,11 +607,6 @@ const MainApp = () => {
             <span className="text-sm text-yellow-800">{error}</span>
           </div>
         )}
-
-        {/* Tournament Quick Access */}
-        <div className="mx-4 mt-6">
-          <TournamentQuickAccess />
-        </div>
 
         {/* User Status Bar */}
         {!isPremium && isToday && (
@@ -567,7 +651,7 @@ const MainApp = () => {
           ) : predictions.length === 0 ? (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">No hay predicciones para esta fecha</p>
+              <p className="text-gray-600">No hay predicciones para esta fecha</p>
               <button 
                 onClick={handleRefresh}
                 className="mt-4 text-blue-600 font-medium"
@@ -715,6 +799,39 @@ const MainApp = () => {
     );
   };
 
+  // Componente de Torneos integrado
+  const TournamentsScreen = () => {
+    switch (tournamentView) {
+      case 'join':
+        return (
+          <TournamentJoin
+            tournament={selectedTournament}
+            onBack={handleBackToTournamentMain}
+            onJoin={handleTournamentJoin}
+          />
+        );
+      
+      case 'live':
+        return (
+          <TournamentLive
+            tournament={selectedTournament}
+            onBack={handleBackToTournamentMain}
+          />
+        );
+      
+      default:
+        return (
+          <TournamentsMain
+            tournaments={tournamentsData}
+            userStats={userTournamentStats}
+            onTournamentSelect={handleTournamentSelect}
+            isPremium={isPremium}
+            userData={userData}
+          />
+        );
+    }
+  };
+
   const StatsScreen = () => {
     const allStats = calculateRealStats(allPredictions);
     
@@ -750,6 +867,31 @@ const MainApp = () => {
               <div className="flex items-center justify-between mt-1">
                 <span className="text-sm text-purple-100">Cuota promedio:</span>
                 <span className="font-bold">{realStats.avgOdds}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tournament Stats - NUEVO */}
+        {userTournamentStats.totalTournaments > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 mb-4">🏆 Estadísticas de Torneos</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{userTournamentStats.totalTournaments}</div>
+                <div className="text-xs text-gray-600">Jugados</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{userTournamentStats.prizesWon}</div>
+                <div className="text-xs text-gray-600">Premios</div>
+              </div>
+              <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                <div className="text-2xl font-bold text-yellow-600">{userTournamentStats.totalEarnings}</div>
+                <div className="text-xs text-gray-600">S/ Ganados</div>
+              </div>
+              <div className="text-center p-3 bg-purple-50 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">{userTournamentStats.roi}%</div>
+                <div className="text-xs text-gray-600">ROI</div>
               </div>
             </div>
           </div>
@@ -893,6 +1035,21 @@ const MainApp = () => {
             </p>
           </div>
         </div>
+
+        {/* Tournament Achievement - NUEVO */}
+        {userTournamentStats.totalTournaments > 0 && (
+          <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-3 mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-orange-800">🏆 Maestro de Torneos</div>
+                <div className="text-xs text-orange-600">
+                  {userTournamentStats.prizesWon} premios ganados • ROI: {userTournamentStats.roi}%
+                </div>
+              </div>
+              <div className="text-2xl">🏆</div>
+            </div>
+          </div>
+        )}
         
         {!isPremium && (
           <button 
@@ -934,21 +1091,21 @@ const MainApp = () => {
         <h2 className="text-lg font-bold text-gray-800 mb-4">Configuración</h2>
         <div className="space-y-4">
           <button 
-            onClick={() => navigate('/app/settings/notifications')}
+            onClick={() => navigate('/settings/notifications')}
             className="w-full flex items-center justify-between py-3 text-left"
           >
             <span className="text-gray-700">Notificaciones</span>
             <ChevronRight className="w-5 h-5 text-gray-400" />
           </button>
           <button 
-            onClick={() => navigate('/app/settings/preferences')}
+            onClick={() => navigate('/settings/preferences')}
             className="w-full flex items-center justify-between py-3 text-left"
           >
             <span className="text-gray-700">Preferencias</span>
             <ChevronRight className="w-5 h-5 text-gray-400" />
           </button>
           <button 
-            onClick={() => navigate('/app/settings/privacy')}
+            onClick={() => navigate('/settings/privacy')}
             className="w-full flex items-center justify-between py-3 text-left"
           >
             <span className="text-gray-700">Privacidad</span>
@@ -974,41 +1131,34 @@ const MainApp = () => {
     </div>
   );
 
+  const screens = {
+    home: <HomeScreen />,
+    tournaments: <TournamentsScreen />, // ← NUEVA PANTALLA INTEGRADA
+    stats: <StatsScreen />,
+    premium: <PremiumScreen />,
+    profile: <ProfileScreen />
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Rutas principales */}
-      <Routes>
-        {/* Ruta principal - Predicciones */}
-        <Route path="/" element={<HomeScreen />} />
-        <Route path="/home" element={<HomeScreen />} />
-        <Route path="/stats" element={<StatsScreen />} />
-        <Route path="/premium" element={<PremiumScreen />} />
-        <Route path="/profile" element={<ProfileScreen />} />
-        
-        {/* Rutas de torneos */}
-        <Route path="/tournaments" element={<TournamentsScreen />} />
-        <Route path="/tournaments/:id" element={<TournamentDetail />} />
-        <Route path="/tournaments/:id/play" element={<TournamentPlay />} />
-        <Route path="/tournaments/:id/ranking" element={<TournamentRanking />} />
-        <Route path="/tournaments/history" element={<TournamentHistory />} />
-        
-        {/* Ruta por defecto */}
-        <Route path="*" element={<HomeScreen />} />
-      </Routes>
+      {/* Main Content */}
+      <div className="pb-16">
+        {screens[activeTab]}
+      </div>
 
-      {/* Bottom Navigation */}
+      {/* Bottom Navigation - ACTUALIZADA */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
         <div className="flex justify-around items-center py-2">
           {[
-            { id: 'home', icon: Home, label: 'Inicio', path: '/app' },
-            { id: 'tournaments', icon: Trophy, label: 'Torneos', path: '/app/tournaments' },
-            { id: 'stats', icon: BarChart3, label: 'Stats', path: '/app/stats' },
-            { id: 'premium', icon: Star, label: 'Premium', path: '/app/premium' },
-            { id: 'profile', icon: User, label: 'Perfil', path: '/app/profile' }
+            { id: 'home', icon: Home, label: 'Inicio' },
+            { id: 'tournaments', icon: Trophy, label: 'Torneos' }, // ← NUEVO TAB
+            { id: 'stats', icon: BarChart3, label: 'Stats' },
+            { id: 'premium', icon: Crown, label: 'Premium' }, // ← Crown en lugar de Trophy
+            { id: 'profile', icon: User, label: 'Perfil' }
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => navigate(tab.path)}
+              onClick={() => setActiveTab(tab.id)}
               className={`flex flex-col items-center py-2 px-4 ${
                 activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'
               }`}

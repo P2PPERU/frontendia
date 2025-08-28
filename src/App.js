@@ -5,6 +5,7 @@ import { AppProvider } from './contexts/AppContext';
 import AuthSystem from './components/auth/AuthSystem';
 import MainApp from './screens/main/MainApp';
 import AdminPanel from './components/admin/AdminPanel';
+import TournamentDetailAdmin from './components/admin/tournaments/TournamentDetailAdmin';
 
 console.log('🚀 App.js cargado');
 
@@ -102,7 +103,7 @@ function AppContent() {
             <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
               <span className="text-white text-2xl font-bold">IA</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">IA SPORT</h1>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Predic Master</h1>
             <p className="text-gray-600 text-sm mb-4">Inicializando aplicación...</p>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full animate-pulse" style={{width: '75%'}}></div>
@@ -138,7 +139,17 @@ function AppContent() {
           } 
         />
         
-        {/* Rutas del panel de administrador */}
+        {/* ✅ NUEVA RUTA: Detalles de torneo en admin - MÁS ESPECÍFICA PRIMERO */}
+        <Route 
+          path="/admin/tournaments/:id" 
+          element={
+            <ProtectedRoute requireAdmin>
+              <TournamentDetailAdmin />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Rutas del panel de administrador - MÁS GENERAL DESPUÉS */}
         <Route 
           path="/admin/*" 
           element={

@@ -26,8 +26,8 @@ const LoginView = ({
         <div className="bg-white/20 backdrop-blur-sm w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
           <Brain className="w-10 h-10 text-white" />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-2">IA SPORT</h1>
-        <p className="text-blue-100">Predicciones Inteligentes con IA</p>
+        <h1 className="text-3xl font-bold text-white mb-2">Predic Master</h1>
+        <p className="text-blue-100">Compite, Predice y Gana.</p>
       </div>
     </div>
 
@@ -147,13 +147,13 @@ const LoginView = ({
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <Target className="w-8 h-8 text-blue-600 mb-2" />
-          <h3 className="font-bold text-gray-800">89% Precisión</h3>
+          <h3 className="font-bold text-gray-800">Prueba tu Habilidad</h3>
           <p className="text-xs text-gray-600 mt-1">En predicciones deportivas</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <TrendingUp className="w-8 h-8 text-green-600 mb-2" />
-          <h3 className="font-bold text-gray-800">+42% ROI</h3>
-          <p className="text-xs text-gray-600 mt-1">Retorno promedio semanal</p>
+          <h3 className="font-bold text-gray-800">Ganancias diarias</h3>
+          <p className="text-xs text-gray-600 mt-1">Torneos diarios</p>
         </div>
       </div>
     </div>

@@ -259,7 +259,7 @@ class NotificationService {
     const isAndroid = /android/i.test(navigator.userAgent.toLowerCase());
     
     if (isIOS) {
-      return 'Ve a Ajustes > Notificaciones > Safari > IA Sport';
+      return 'Ve a Ajustes > Notificaciones > Safari > Predic Master';
     } else if (isAndroid) {
       return 'Ve a Ajustes > Aplicaciones > Chrome > Notificaciones';
     } else {
